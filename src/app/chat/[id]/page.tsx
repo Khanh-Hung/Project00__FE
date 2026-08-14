@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ChatMessage, ChatSession, MessageRole } from "@/types";
 import { fetchChatSession, sendChatMessage } from "@/lib/api";
-import { ArrowLeft, Send, Sparkles, User, Bot, Loader2, Info, X } from "lucide-react";
+import { ArrowLeft, Send, Sparkles, User as UserIcon, Bot, Loader2, Info, X } from "lucide-react";
 import Link from "next/link";
 
 export default function ChatPage() {
@@ -98,7 +98,7 @@ export default function ChatPage() {
         return (
           <span
             key={index}
-            className="my-0.5 inline-block rounded-md bg-purple-500/15 px-1.5 py-0.5 text-[13px] font-medium italic text-purple-300 border border-purple-500/20"
+            className="my-0.5 inline-block rounded-md bg-purple-500/20 px-2 py-0.5 text-[13px] font-medium italic text-purple-200 border border-purple-500/30"
           >
             *{actionText}*
           </span>
@@ -129,7 +129,7 @@ export default function ChatPage() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
 
-          <div className="relative h-10 w-10 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-800 shadow-md">
+          <div className="relative h-10 w-10 overflow-hidden rounded-xl border border-purple-500/30 bg-zinc-800 shadow-md">
             <img
               src={session?.characterAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${session?.characterName}`}
               alt={session?.characterName}
@@ -170,35 +170,46 @@ export default function ChatPage() {
           </div>
 
           {messages.map((msg) => {
-            const isUser = msg.role === MessageRole.User;
+            // Flexible check for User message (matches enum 0, number 0, string 'User' or 'user')
+            const isUser =
+              msg.role === MessageRole.User ||
+              msg.role === 0 ||
+              String(msg.role).toLowerCase() === "user";
+
             return (
               <div
                 key={msg.id}
                 className={`flex items-start gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}
               >
-                <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-xs font-bold shadow-md ${
-                    isUser
-                      ? "border-indigo-600 bg-indigo-700 text-white"
-                      : "border-purple-600 bg-purple-900 text-purple-200"
-                  }`}
-                >
-                  {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
-                </div>
+                {/* Avatar Icon */}
+                {isUser ? (
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-600/30">
+                    <UserIcon className="h-4 w-4" />
+                  </div>
+                ) : (
+                  <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-2xl border border-purple-500/30 bg-zinc-800 shadow-md">
+                    <img
+                      src={session?.characterAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${session?.characterName}`}
+                      alt={session?.characterName}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                )}
 
+                {/* Message Content Bubble */}
                 <div
                   className={`relative max-w-[82%] sm:max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-lg ${
                     isUser
-                      ? "rounded-tr-none bg-gradient-to-r from-indigo-600 to-purple-600 text-white"
-                      : "rounded-tl-none border border-zinc-800 bg-zinc-900/90 text-zinc-100 backdrop-blur-sm"
+                      ? "rounded-tr-none bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-purple-600/20"
+                      : "rounded-tl-none border border-zinc-800/90 bg-zinc-900/90 text-zinc-100 backdrop-blur-sm"
                   }`}
                 >
                   <div className="whitespace-pre-wrap">
                     {isUser ? msg.content : renderFormattedMessage(msg.content)}
                   </div>
                   <div
-                    className={`mt-1 text-[10px] ${
-                      isUser ? "text-indigo-200 text-right" : "text-zinc-500 text-left"
+                    className={`mt-1.5 text-[10px] ${
+                      isUser ? "text-indigo-200/80 text-right" : "text-zinc-500 text-left"
                     }`}
                   >
                     {new Date(msg.timestamp).toLocaleTimeString([], {
@@ -211,17 +222,22 @@ export default function ChatPage() {
             );
           })}
 
+          {/* AI Typing Indicator */}
           {isSending && (
             <div className="flex items-start gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-purple-600 bg-purple-900 text-purple-200 text-xs shadow-md">
-                <Bot className="h-4 w-4" />
+              <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-2xl border border-purple-500/30 bg-zinc-800 shadow-md">
+                <img
+                  src={session?.characterAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${session?.characterName}`}
+                  alt={session?.characterName}
+                  className="h-full w-full object-cover"
+                />
               </div>
               <div className="rounded-2xl rounded-tl-none border border-zinc-800 bg-zinc-900/90 px-4 py-3 shadow-lg">
                 <div className="flex items-center gap-1.5">
                   <span className="h-2 w-2 animate-bounce rounded-full bg-purple-400 [animation-delay:-0.3s]"></span>
                   <span className="h-2 w-2 animate-bounce rounded-full bg-purple-400 [animation-delay:-0.15s]"></span>
                   <span className="h-2 w-2 animate-bounce rounded-full bg-purple-400"></span>
-                  <span className="ml-2 text-xs italic text-zinc-400">{session?.characterName} đang soạn câu trả lời...</span>
+                  <span className="ml-2 text-xs italic text-zinc-400">{session?.characterName} đang suy nghĩ...</span>
                 </div>
               </div>
             </div>
