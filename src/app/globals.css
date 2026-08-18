@@ -1,26 +1,129 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #18191c;
+  --foreground: #f4f4f5;
+  color-scheme: dark;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-plus-jakarta-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  height: 100%;
+  overflow: hidden;
+  background: #18191c;
+  color: #f4f4f5;
+  color-scheme: dark;
+  font-family: var(--font-plus-jakarta-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tối ưu hiển thị ảnh mượt mà, khử răng cưa và sắc nét tự nhiên */
+img {
+  image-rendering: auto;
+  image-rendering: smooth;
+  -ms-interpolation-mode: bicubic;
+}
+
+/* Đảm bảo toàn bộ input luôn có màu chữ sáng trắng rõ nét trong mọi trạng thái */
+input,
+input:hover,
+input:focus,
+input:focus-visible,
+input:active {
+  color: #ffffff !important;
+  caret-color: #ffffff !important;
+  color-scheme: dark !important;
+}
+
+/* Đảm bảo chữ gợi ý (Placeholder) luôn có màu xám mờ tinh tế, không bị đậm */
+input::placeholder,
+textarea::placeholder,
+input::-webkit-input-placeholder,
+textarea::-webkit-input-placeholder {
+  color: #636570 !important;
+  -webkit-text-fill-color: #636570 !important;
+  opacity: 1 !important;
+}
+
+/* Fix triệt để Chrome Autofill không bị đổi màu nền hay màu chữ khi click/focus */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:focus-visible,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #1a1b1f inset !important;
+  box-shadow: 0 0 0 1000px #1a1b1f inset !important;
+  -webkit-text-fill-color: #f4f4f5 !important;
+  color: #f4f4f5 !important;
+  caret-color: #f4f4f5 !important;
+  border-radius: 0.75rem !important;
+  border-color: #31333a !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Custom Sleek Scrollbar cho TOÀN BỘ trang và mọi container con */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3b3d46 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 8px 0; /* Cách 2 đầu trên/dưới 8px để không bao giờ bị cắt góc bo cong */
+}
+
+*::-webkit-scrollbar-track-piece {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #353740;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 160ms ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #525562;
+  background-clip: padding-box;
+}
+
+/* Ẩn triệt để toàn bộ nút mũi tên và góc vuông trắng trên Windows */
+*::-webkit-scrollbar-button,
+*::-webkit-scrollbar-button:single-button,
+*::-webkit-scrollbar-button:vertical:decrement,
+*::-webkit-scrollbar-button:vertical:increment {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent !important;
+  display: none !important;
+}
+
+*::-webkit-resizer {
+  display: none !important;
+  background: transparent !important;
+}
+
+/* Textarea tự động co giãn theo nội dung */
+textarea {
+  resize: none !important;
+  field-sizing: content;
 }

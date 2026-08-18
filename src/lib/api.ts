@@ -1,10 +1,125 @@
-import { ApiResponse, Character, ChatSession, CreateCharacterRequest } from "@/types";
+import {
+  ApiResponse,
+  AuthResponse,
+  Character,
+  ChatSession,
+  ChatSessionListItem,
+  CreateCharacterRequest,
+  LoginRequest,
+  RegisterRequest,
+  UpdateCharacterRequest,
+  GeneratedCharacterDto,
+  ChatMessage,
+  User,
+} from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
 
+function getAuthHeader(): Record<string, string> {
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("nyxoris_auth_token");
+    if (token) {
+      return { Authorization: `Bearer ${token}` };
+    }
+  }
+  return {};
+}
+
+function extractErrorMessage(errorJson: any): string | undefined {
+  if (!errorJson) return undefined;
+  if (Array.isArray(errorJson.errors) && errorJson.errors.length > 0) {
+    return errorJson.errors[0];
+  }
+  if (errorJson.errors && typeof errorJson.errors === "object") {
+    const values = Object.values(errorJson.errors).flat();
+    if (values.length > 0) return String(values[0]);
+  }
+  return errorJson.message || errorJson.title || undefined;
+}
+
+function localizeError(rawError: string | undefined, defaultMessage: string): string {
+  if (!rawError) return defaultMessage;
+  const lower = rawError.toLowerCase();
+
+  if (lower.includes("email is already in use") || lower.includes("already in use") || lower.includes("conflict")) {
+    return "Email này đã được sử dụng. Vui lòng đăng nhập hoặc sử dụng email khác.";
+  }
+  if (lower.includes("invalid email or password") || lower.includes("unauthorized")) {
+    return "Email hoặc mật khẩu không chính xác. Vui lòng thử lại!";
+  }
+  if (lower.includes("character") && lower.includes("not found")) {
+    return "Không tìm thấy thông tin nhân vật này.";
+  }
+  if (lower.includes("session") && lower.includes("not found")) {
+    return "Không tìm thấy phòng trò chuyện này.";
+  }
+  if (lower.includes("failed to send message") || lower.includes("ai")) {
+    return "Không thể nhận phản hồi từ AI. Vui lòng thử lại!";
+  }
+
+  return rawError.includes("failed") || rawError.includes("error") || rawError.includes("validation") ? defaultMessage : rawError;
+}
+
+export async function loginUser(req: LoginRequest): Promise<AuthResponse> {
+  const res = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => null);
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Email hoặc mật khẩu không chính xác. Vui lòng thử lại!"));
+  }
+  const json: ApiResponse<AuthResponse> = await res.json();
+  return json.data;
+}
+
+export async function registerUser(req: RegisterRequest): Promise<AuthResponse> {
+  const name = req.userName || "User";
+  const res = await fetch(`${API_BASE_URL}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: req.email,
+      password: req.password,
+      userName: name,
+      fullName: name,
+      avatarUrl: req.avatarUrl || null,
+    }),
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => null);
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Đăng ký không thành công. Vui lòng thử lại!"));
+  }
+  const json: ApiResponse<AuthResponse> = await res.json();
+  return json.data;
+}
+
+export async function fetchCurrentUser(): Promise<User | null> {
+  try {
+    const authHeader = getAuthHeader();
+    if (!authHeader.Authorization) return null;
+
+    const res = await fetch(`${API_BASE_URL}/auth/me`, {
+      headers: { ...authHeader },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const json: ApiResponse<User> = await res.json();
+    return json.data || null;
+  } catch (error) {
+    console.warn("[API] Could not fetch current user:", error);
+    return null;
+  }
+}
+
 export async function fetchCharacters(category?: string): Promise<Character[]> {
   try {
-    const url = category ? `${API_BASE_URL}/characters?category=${encodeURIComponent(category)}` : `${API_BASE_URL}/characters`;
+    const url = category
+      ? `${API_BASE_URL}/characters?category=${encodeURIComponent(category)}`
+      : `${API_BASE_URL}/characters`;
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) {
       console.warn(`[API] Failed to fetch characters, status: ${res.status}`);
@@ -33,51 +148,202 @@ export async function fetchCharacterById(id: string): Promise<Character | null> 
 export async function createCharacter(req: CreateCharacterRequest): Promise<Character> {
   const res = await fetch(`${API_BASE_URL}/characters`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
     body: JSON.stringify(req),
   });
   if (!res.ok) {
     const errorJson = await res.json().catch(() => null);
-    throw new Error(errorJson?.errors?.[0] || "Failed to create character");
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Không thể tạo nhân vật mới. Vui lòng thử lại!"));
   }
   const json: ApiResponse<Character> = await res.json();
   return json.data;
 }
 
+export async function updateCharacter(id: string, req: UpdateCharacterRequest): Promise<Character> {
+  const res = await fetch(`${API_BASE_URL}/characters/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => null);
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Không thể cập nhật nhân vật. Vui lòng thử lại!"));
+  }
+  const json: ApiResponse<Character> = await res.json();
+  return json.data;
+}
+
+export async function deleteCharacter(id: string): Promise<boolean> {
+  const res = await fetch(`${API_BASE_URL}/characters/${id}`, {
+    method: "DELETE",
+    headers: {
+      ...getAuthHeader(),
+    },
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => null);
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Không thể xóa nhân vật. Vui lòng thử lại!"));
+  }
+  return true;
+}
+
+export async function fetchRecentSessions(): Promise<ChatSessionListItem[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/chat/sessions`, {
+      headers: { ...getAuthHeader() },
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const json: ApiResponse<ChatSessionListItem[]> = await res.json();
+    return json.data || [];
+  } catch (error) {
+    console.warn("[API] Could not fetch chat sessions:", error);
+    return [];
+  }
+}
+
 export async function createChatSession(characterId: string, title: string): Promise<ChatSession> {
   const res = await fetch(`${API_BASE_URL}/chat/sessions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
     body: JSON.stringify({ characterId, title }),
   });
   if (!res.ok) {
     const errorJson = await res.json().catch(() => null);
-    throw new Error(errorJson?.errors?.[0] || "Failed to create chat session");
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Không thể khởi tạo phòng trò chuyện. Vui lòng thử lại!"));
   }
   const json: ApiResponse<ChatSession> = await res.json();
   return json.data;
+}
+
+export async function getOrCreateChatSession(characterId: string, title?: string): Promise<{ id: string }> {
+  try {
+    const sessions = await fetchRecentSessions();
+    const existing = sessions.find((s) => s.characterId === characterId);
+    if (existing) {
+      return { id: existing.id };
+    }
+  } catch (err) {
+    console.warn("[API] Could not check existing sessions:", err);
+  }
+  return await createChatSession(characterId, title || "Cuộc trò chuyện");
 }
 
 export async function fetchChatSession(sessionId: string): Promise<ChatSession> {
-  const res = await fetch(`${API_BASE_URL}/chat/sessions/${sessionId}`, { cache: "no-store" });
+  const res = await fetch(`${API_BASE_URL}/chat/sessions/${sessionId}`, {
+    headers: { ...getAuthHeader() },
+    cache: "no-store",
+  });
   if (!res.ok) {
     const errorJson = await res.json().catch(() => null);
-    throw new Error(errorJson?.errors?.[0] || "Failed to load chat session");
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Không tìm thấy phòng trò chuyện này."));
   }
   const json: ApiResponse<ChatSession> = await res.json();
   return json.data;
 }
 
-export async function sendChatMessage(sessionId: string, content: string): Promise<{ userMessage: any; assistantMessage: any }> {
+export async function deleteChatSession(sessionId: string): Promise<boolean> {
+  const res = await fetch(`${API_BASE_URL}/chat/sessions/${sessionId}`, {
+    method: "DELETE",
+    headers: { ...getAuthHeader() },
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => null);
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Không thể xóa phòng trò chuyện này."));
+  }
+  return true;
+}
+
+export async function sendChatMessage(
+  sessionId: string,
+  content: string
+): Promise<{ userMessage: any; assistantMessage: any }> {
   const res = await fetch(`${API_BASE_URL}/chat/messages`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
     body: JSON.stringify({ sessionId, content }),
   });
   if (!res.ok) {
     const errorJson = await res.json().catch(() => null);
-    throw new Error(errorJson?.errors?.[0] || "Failed to send message to AI");
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Không thể nhận phản hồi từ AI. Vui lòng thử lại!"));
   }
   const json = await res.json();
   return json.data;
+}
+
+export async function rollbackChatMessage(
+  sessionId: string,
+  messageId: string
+): Promise<boolean> {
+  const res = await fetch(`${API_BASE_URL}/chat/sessions/${sessionId}/rollback/${messageId}`, {
+    method: "POST",
+    headers: {
+      ...getAuthHeader(),
+    },
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => null);
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Không thể quay về mốc tin nhắn này."));
+  }
+  return true;
+}
+
+export async function generateCharacterWithAi(
+  idea: string,
+  category?: string
+): Promise<GeneratedCharacterDto> {
+  const res = await fetch(`${API_BASE_URL}/characters/generate-ai`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
+    body: JSON.stringify({ idea, category }),
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => null);
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Không thể tự động tạo nhân vật bằng AI lúc này. Vui lòng thử lại!"));
+  }
+  const json = await res.json();
+  const data = json?.data ?? json?.value ?? json;
+  if (!data) {
+    throw new Error("Không nhận được dữ liệu hợp lệ từ AI.");
+  }
+  return data;
+}
+
+export async function fetchAiRandomIdeas(count = 4): Promise<string[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/characters/generate-ideas?count=${count}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const data = json?.data ?? json?.value ?? json;
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.warn("Could not fetch AI random ideas:", err);
+    return [];
+  }
 }
