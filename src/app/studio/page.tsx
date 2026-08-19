@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { Character, CreateCharacterRequest, UpdateCharacterRequest } from "@/types";
+import { useEffect, useState } from "react";
+import { Character, UpdateCharacterRequest } from "@/types";
 import { fetchCharacters, createCharacter, updateCharacter, deleteCharacter } from "@/lib/api";
 import { Header } from "@/components/layout/Header";
 import { Avatar } from "@/components/ui/Avatar";
 import { CreateCharacterModal } from "@/components/characters/CreateCharacterModal";
-import { ImageCropperModal } from "@/components/ui/ImageCropperModal";
+import { EditCharacterModal } from "@/components/characters/EditCharacterModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   Palette,
@@ -19,9 +19,6 @@ import {
   Loader2,
   Sparkles,
   X,
-  Check,
-  Upload,
-  Image as ImageIcon,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -42,21 +39,6 @@ export default function StudioPage() {
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
   const [characterToDelete, setCharacterToDelete] = useState<Character | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const editFileInputRef = useRef<HTMLInputElement>(null);
-
-  // Edit form states
-  const [editName, setEditName] = useState("");
-  const [editTitle, setEditTitle] = useState("");
-  const [editAvatarUrl, setEditAvatarUrl] = useState("");
-  const [rawEditAvatarImage, setRawEditAvatarImage] = useState<string | null>(null);
-  const [isEditCropperOpen, setIsEditCropperOpen] = useState(false);
-  const [editCategory, setEditCategory] = useState("Companion");
-  const [editPersonality, setEditPersonality] = useState("");
-  const [editGreeting, setEditGreeting] = useState("");
-  const [editTags, setEditTags] = useState("");
-  const [editIsPublic, setEditIsPublic] = useState(true);
 
   const loadCharacters = async () => {
     try {
@@ -74,73 +56,10 @@ export default function StudioPage() {
     loadCharacters();
   }, []);
 
-  const handleOpenEdit = (char: Character) => {
-    setEditingCharacter(char);
-    setEditName(char.name);
-    setEditTitle(char.title);
-    setEditAvatarUrl(char.avatarUrl);
-    setRawEditAvatarImage(char.avatarUrl || null);
-    setEditCategory(char.category || "Companion");
-    setEditPersonality(char.personalityPrompt);
-    setEditGreeting(char.greeting);
-    setEditTags(char.tags?.join(", ") || "");
-    setEditIsPublic(char.isPublic);
-  };
-
-  const handleEditFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      alert("Vui lòng chọn tệp hình ảnh hợp lệ (PNG, JPG, WEBP, GIF)!");
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      alert("Dung lượng ảnh tối đa là 10MB!");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const src = reader.result as string;
-      setRawEditAvatarImage(src);
-      setIsEditCropperOpen(true);
-      if (editFileInputRef.current) editFileInputRef.current.value = "";
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleEditCropSave = (croppedDataUrl: string) => {
-    setEditAvatarUrl(croppedDataUrl);
-  };
-
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingCharacter || !editName.trim()) return;
-
-    try {
-      setIsSubmitting(true);
-      const updatedReq: UpdateCharacterRequest = {
-        name: editName.trim(),
-        title: editTitle.trim(),
-        avatarUrl: editAvatarUrl.trim(),
-        category: editCategory,
-        personalityPrompt: editPersonality.trim(),
-        greeting: editGreeting.trim(),
-        tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
-        isPublic: editIsPublic,
-      };
-
-      const updated = await updateCharacter(editingCharacter.id, updatedReq);
-      setCharacters((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-      setEditingCharacter(null);
-    } catch (err: any) {
-      console.error("Failed to update character", err);
-      alert(err.message || "Không thể cập nhật nhân vật. Vui lòng thử lại!");
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleUpdateCharacter = async (characterId: string, req: UpdateCharacterRequest) => {
+    const updated = await updateCharacter(characterId, req);
+    setCharacters((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+    setEditingCharacter(null);
   };
 
   const handleConfirmDelete = async () => {
@@ -194,7 +113,7 @@ export default function StudioPage() {
               <div className="flex items-center gap-2.5">
                 <Palette className="h-6 w-6 text-pink-400" />
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-100">
-                  Creator Studio
+                  Studio Sáng Tạo
                 </h1>
               </div>
               <p className="text-xs sm:text-sm text-zinc-400 mt-1">
@@ -239,13 +158,13 @@ export default function StudioPage() {
               <p className="text-2xl font-bold text-zinc-100 mt-1">{characters.length}</p>
             </div>
             <div className="rounded-2xl border border-[#31333a] bg-[#212227] p-5 backdrop-blur-sm shadow-sm">
-              <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Công Khai (Public)</p>
+              <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Công Khai</p>
               <p className="text-2xl font-bold text-emerald-400 mt-1">
                 {characters.filter((c) => c.isPublic).length}
               </p>
             </div>
             <div className="rounded-2xl border border-[#31333a] bg-[#212227] p-5 backdrop-blur-sm shadow-sm">
-              <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Riêng Tư (Private)</p>
+              <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Riêng Tư</p>
               <p className="text-2xl font-bold text-amber-400 mt-1">
                 {characters.filter((c) => !c.isPublic).length}
               </p>
@@ -334,7 +253,7 @@ export default function StudioPage() {
                       </Link>
 
                       <button
-                        onClick={() => handleOpenEdit(char)}
+                        onClick={() => setEditingCharacter(char)}
                         className="flex items-center gap-1 rounded-xl border border-[#3b3d46] bg-[#2b2c34] px-3 py-1.5 text-xs font-semibold text-zinc-200 hover:bg-[#353740] hover:text-white transition-colors cursor-pointer"
                       >
                         <Edit2 className="h-3 w-3" />
@@ -367,229 +286,12 @@ export default function StudioPage() {
         }}
       />
 
-      {/* Edit Modal */}
-      {editingCharacter && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-[#31333a] bg-[#212227] p-6 sm:p-8 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#2c2e35] pb-4 mb-6">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2b2c34] border border-[#3b3d46]">
-                  <Edit2 className="h-4 w-4 text-zinc-200" />
-                </div>
-                <h2 className="text-lg font-bold text-zinc-100">
-                  Chỉnh sửa nhân vật: <span className="text-white">{editingCharacter.name}</span>
-                </h2>
-              </div>
-              <button
-                onClick={() => setEditingCharacter(null)}
-                className="rounded-xl p-1.5 text-zinc-400 hover:bg-[#282930] hover:text-zinc-100 transition-colors cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEdit} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Tên nhân vật *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="w-full rounded-2xl border border-[#31333a] bg-[#191a1e] px-4 py-2.5 text-sm text-zinc-100 focus:border-[#525562] focus:bg-[#1e2025] focus:outline-none transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Danh xưng / Vai trò *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    className="w-full rounded-2xl border border-[#31333a] bg-[#191a1e] px-4 py-2.5 text-sm text-zinc-100 focus:border-[#525562] focus:bg-[#1e2025] focus:outline-none transition-colors"
-                  />
-                </div>
-              </div>
-
-              {/* Row 2: Thể loại */}
-              <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Thể loại</label>
-                <select
-                  value={editCategory}
-                  onChange={(e) => setEditCategory(e.target.value)}
-                  className="w-full rounded-2xl border border-[#31333a] bg-[#191a1e] px-4 py-2.5 text-sm text-zinc-100 focus:border-[#525562] focus:bg-[#1e2025] focus:outline-none transition-colors"
-                >
-                  {[
-                    { id: "Companion", label: "Bạn đồng hành" },
-                    { id: "Anime", label: "Anime" },
-                    { id: "Fantasy", label: "Kỳ ảo" },
-                    { id: "RPG", label: "Nhập vai" },
-                    { id: "Assistant", label: "Trợ lý" },
-                    { id: "Mentor", label: "Cố vấn" },
-                  ].map((c) => (
-                    <option key={c.id} value={c.id} className="bg-[#212227] text-zinc-100 py-2">
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Row 3: Centered Avatar Upload / Update Box */}
-              <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                  Ảnh đại diện nhân vật (Tùy chọn)
-                </label>
-                <input
-                  type="file"
-                  ref={editFileInputRef}
-                  accept="image/*"
-                  onChange={handleEditFileUpload}
-                  className="hidden"
-                />
-
-                <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-[#31333a] bg-[#191a1e]/90 p-6 sm:p-7 text-center transition-all">
-                  {editAvatarUrl ? (
-                    <>
-                      <div className="relative group">
-                        <img
-                          src={editAvatarUrl}
-                          alt="Avatar Preview"
-                          className="h-20 w-20 sm:h-24 sm:w-24 rounded-full object-cover border-2 border-[#3b3d46] shadow-2xl ring-4 ring-black/30"
-                        />
-                      </div>
-
-                      <p className="mt-3.5 max-w-sm text-xs sm:text-sm font-normal text-zinc-300 leading-relaxed">
-                        Bạn đã thiết lập ảnh đại diện. Chọn ảnh mới hoặc chỉnh sửa ảnh hiện tại.
-                      </p>
-
-                      <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => editFileInputRef.current?.click()}
-                          className="rounded-2xl bg-zinc-100 px-4 py-2 text-xs font-bold text-zinc-950 shadow-md hover:bg-white active:scale-95 transition-all cursor-pointer"
-                        >
-                          Chọn ảnh từ máy tính
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (rawEditAvatarImage || editAvatarUrl) {
-                              setIsEditCropperOpen(true);
-                            }
-                          }}
-                          className="rounded-2xl border border-[#3b3d46] bg-[#2b2c34] px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-[#353740] hover:text-white active:scale-95 transition-all cursor-pointer"
-                        >
-                          Chỉnh sửa ảnh hiện tại
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditAvatarUrl("");
-                            setRawEditAvatarImage(null);
-                          }}
-                          className="rounded-2xl border border-transparent px-3 py-2 text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-950/20 transition-all cursor-pointer"
-                        >
-                          Xóa ảnh
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div
-                        onClick={() => editFileInputRef.current?.click()}
-                        className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full border-2 border-dashed border-[#3b3d46] bg-[#212227] text-zinc-400 hover:border-zinc-400 hover:text-zinc-200 cursor-pointer shadow-inner transition-all group"
-                      >
-                        <Upload className="h-6 w-6 group-hover:scale-110 transition-transform" />
-                      </div>
-
-                      <p className="mt-3 max-w-sm text-xs sm:text-sm font-normal text-zinc-400 leading-relaxed">
-                        Chưa có ảnh đại diện. Tải ảnh từ máy tính để nhân vật của bạn trông nổi bật và sống động hơn.
-                      </p>
-
-                      <div className="mt-4">
-                        <button
-                          type="button"
-                          onClick={() => editFileInputRef.current?.click()}
-                          className="rounded-2xl bg-zinc-100 px-5 py-2 text-xs font-bold text-zinc-950 shadow-md hover:bg-white active:scale-95 transition-all cursor-pointer"
-                        >
-                          Chọn ảnh từ máy tính
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                  Tính cách & Bối cảnh nhân vật *
-                </label>
-                <textarea
-                  rows={4}
-                  required
-                  value={editPersonality}
-                  onChange={(e) => setEditPersonality(e.target.value)}
-                  placeholder="VD: Bạn là một cô gái dịu dàng, ấm áp. Luôn xưng 'mình' gọi 'bạn', biết lắng nghe chân thành..."
-                  className="w-full rounded-2xl border border-[#31333a] bg-[#191a1e] p-4 text-sm text-zinc-100 placeholder-zinc-500 focus:border-[#525562] focus:bg-[#1e2025] focus:outline-none transition-colors leading-relaxed resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Lời chào mở đầu *</label>
-                <textarea
-                  rows={3}
-                  required
-                  value={editGreeting}
-                  onChange={(e) => setEditGreeting(e.target.value)}
-                  placeholder="VD: *mỉm cười dịu dàng bước tới gần bạn* Chào bạn! Hôm nay của bạn thế nào?..."
-                  className="w-full rounded-2xl border border-[#31333a] bg-[#191a1e] p-4 text-sm text-zinc-100 placeholder-zinc-500 focus:border-[#525562] focus:bg-[#1e2025] focus:outline-none transition-colors leading-relaxed resize-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-between pt-3 border-t border-[#2c2e35]">
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-zinc-300">
-                  <input
-                    type="checkbox"
-                    checked={editIsPublic}
-                    onChange={(e) => setEditIsPublic(e.target.checked)}
-                    className="rounded border-[#31333a] bg-[#191a1e] text-zinc-100 focus:ring-zinc-500"
-                  />
-                  <span>Công khai cho mọi người cùng trò chuyện</span>
-                </label>
-
-                <div className="flex items-center gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setEditingCharacter(null)}
-                    className="rounded-xl border border-[#3b3d46] bg-[#2b2c34] px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-[#353740] hover:text-white transition-colors cursor-pointer"
-                  >
-                    Hủy
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex items-center gap-1.5 rounded-xl bg-zinc-100 px-5 py-2 text-xs font-bold text-zinc-950 hover:bg-white disabled:opacity-50 transition-all cursor-pointer"
-                  >
-                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                    <span>Lưu Thay Đổi</span>
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Image Cropper Modal */}
-      <ImageCropperModal
-        isOpen={isEditCropperOpen}
-        onClose={() => setIsEditCropperOpen(false)}
-        imageSrc={rawEditAvatarImage || editAvatarUrl || null}
-        onSave={handleEditCropSave}
-        outputSize={512}
+      {/* Modern Edit Character Modal */}
+      <EditCharacterModal
+        character={editingCharacter}
+        isOpen={Boolean(editingCharacter)}
+        onClose={() => setEditingCharacter(null)}
+        onSubmit={handleUpdateCharacter}
       />
 
       {/* Delete Character Confirmation Dialog */}

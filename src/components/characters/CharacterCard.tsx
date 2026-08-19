@@ -61,9 +61,12 @@ export function CharacterCard({ character, onSelect }: CharacterCardProps) {
           <span className="rounded-full bg-[#2b2c34] px-2.5 py-0.5 text-[11px] text-zinc-300 font-semibold border border-[#3b3d46]">
             {categoryLabel}
           </span>
-          {character.creatorName && (
-            <span className="text-[11px] text-zinc-400/90 truncate max-w-[110px] hidden xs:inline font-medium">
-              @{character.creatorName}
+          {(character.creatorName || character.creatorUserName) && (
+            <span
+              title={`Tạo bởi: ${character.creatorName || ""} (@${character.creatorUserName || character.creatorName})`}
+              className="text-[11px] text-amber-400/90 truncate max-w-[120px] hidden xs:inline font-medium"
+            >
+              {character.creatorName || `@${character.creatorUserName}`}
             </span>
           )}
         </div>

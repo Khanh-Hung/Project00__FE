@@ -148,7 +148,15 @@ export default function CharacterProfilePage() {
                   {character.creatorName && (
                     <span className="flex items-center gap-1.5 rounded-lg bg-[#2b2c34] px-2.5 py-1 text-xs font-medium text-amber-300 border border-amber-500/20">
                       <User className="h-3 w-3 text-amber-400" />
-                      <span>Tạo bởi @{character.creatorName}</span>
+                      <span>
+                        Tạo bởi{" "}
+                        <strong className="text-zinc-100 font-semibold">{character.creatorName}</strong>
+                        {character.creatorUserName && (
+                          <span className="text-zinc-400 ml-1 text-[11px]">
+                            (@{character.creatorUserName})
+                          </span>
+                        )}
+                      </span>
                     </span>
                   )}
                 </div>
