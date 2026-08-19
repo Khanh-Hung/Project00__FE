@@ -34,6 +34,14 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface RelationshipMilestone {
+  name: string;
+  minScore: number;
+  maxScore: number;
+  description: string;
+  icon?: string;
+}
+
 export interface Character {
   id: string;
   name: string;
@@ -49,6 +57,9 @@ export interface Character {
   creatorName?: string;
   creatorUserName?: string;
   creatorAvatar?: string;
+  defaultAffectionScore?: number;
+  defaultMood?: string;
+  customMilestones?: RelationshipMilestone[];
 }
 
 export interface CreateCharacterRequest {
@@ -60,6 +71,9 @@ export interface CreateCharacterRequest {
   category: string;
   tags?: string[];
   isPublic?: boolean;
+  defaultAffectionScore?: number;
+  defaultMood?: string;
+  customMilestones?: RelationshipMilestone[];
 }
 
 export interface UpdateCharacterRequest {
@@ -71,6 +85,9 @@ export interface UpdateCharacterRequest {
   category: string;
   tags?: string[];
   isPublic?: boolean;
+  defaultAffectionScore?: number;
+  defaultMood?: string;
+  customMilestones?: RelationshipMilestone[];
 }
 
 export interface GeneratedCharacterDto {
@@ -80,6 +97,9 @@ export interface GeneratedCharacterDto {
   personalityPrompt: string;
   greeting: string;
   tags: string[];
+  defaultAffectionScore?: number;
+  defaultMood?: string;
+  customMilestones?: RelationshipMilestone[];
 }
 
 export enum MessageRole {
@@ -106,6 +126,9 @@ export interface ChatSession {
   characterTitle?: string;
   characterPersonality?: string;
   characterCategory?: string;
+  affectionScore: number;
+  relationshipLevel: number;
+  currentMood?: string;
 }
 
 export interface ChatSessionListItem {
@@ -118,6 +141,18 @@ export interface ChatSessionListItem {
   lastMessageTime: string | null;
   messageCount: number;
   createdAt: string;
+  affectionScore?: number;
+  relationshipLevel?: number;
+}
+
+export interface SendMessageResponse {
+  userMessage: ChatMessage;
+  assistantMessage: ChatMessage;
+  affectionScore: number;
+  relationshipLevel: number;
+  currentMood: string;
+  affectionDelta: number;
+  levelUp: boolean;
 }
 
 export interface ApiResponse<T> {

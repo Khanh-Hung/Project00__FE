@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { CreateCharacterRequest } from "@/types";
+import { CreateCharacterRequest, RelationshipMilestone } from "@/types";
 import { generateCharacterWithAi, fetchAiRandomIdeas, generateCharacterAvatar } from "@/lib/api";
 import { ImageCropperModal } from "@/components/ui/ImageCropperModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { getAffectionStage } from "@/components/chat/chat.constants";
+import RelationshipMilestonesEditor from "./RelationshipMilestonesEditor";
 import {
   X,
   Sparkles,
@@ -76,6 +78,9 @@ export function CreateCharacterModal({ isOpen, onClose, onSubmit }: CreateCharac
   const [greeting, setGreeting] = useState("");
   const [tagsInput, setTagsInput] = useState("");
   const [isPublic, setIsPublic] = useState(true);
+  const [defaultAffectionScore, setDefaultAffectionScore] = useState<number>(0);
+  const [defaultMood, setDefaultMood] = useState<string>("");
+  const [customMilestones, setCustomMilestones] = useState<RelationshipMilestone[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiIdea, setAiIdea] = useState("");
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
@@ -118,11 +123,11 @@ export function CreateCharacterModal({ isOpen, onClose, onSubmit }: CreateCharac
       setIsGeneratingAvatar(true);
       setError(null);
       const res = await generateCharacterAvatar({
-        name: overrideInfo?.name || name || "Nhân vật Anime",
-        title: overrideInfo?.title || title || "Hiệp sĩ",
+        name: overrideInfo?.name || name.trim() || "Nhân vật Anime",
+        title: overrideInfo?.title || title.trim() || "Hiệp sĩ",
         category: overrideInfo?.category || category || "Anime",
-        personalityPrompt: overrideInfo?.personalityPrompt || personalityPrompt || "",
-        idea: overrideInfo?.idea || aiIdea || "",
+        personalityPrompt: overrideInfo?.personalityPrompt || personalityPrompt.trim() || "",
+        idea: overrideInfo?.idea || aiIdea.trim() || "",
       });
       if (res && res.avatarUrl) {
         setAvatarUrl(res.avatarUrl);
@@ -152,6 +157,15 @@ export function CreateCharacterModal({ isOpen, onClose, onSubmit }: CreateCharac
       if (generated.greeting) setGreeting(generated.greeting);
       if (generated.personalityPrompt) setPersonalityPrompt(generated.personalityPrompt);
       if (generated.tags && generated.tags.length > 0) setTagsInput(generated.tags.join(", "));
+      if (typeof generated.defaultAffectionScore === "number") {
+        setDefaultAffectionScore(generated.defaultAffectionScore);
+      }
+      if (generated.defaultMood) {
+        setDefaultMood(generated.defaultMood);
+      }
+      if (generated.customMilestones && generated.customMilestones.length > 0) {
+        setCustomMilestones(generated.customMilestones);
+      }
 
       // Tự động phác họa luôn bức ảnh đại diện Anime tuyệt đẹp tương ứng!
       handleGenerateAvatarAi({
@@ -184,6 +198,8 @@ export function CreateCharacterModal({ isOpen, onClose, onSubmit }: CreateCharac
         if (data.personalityPrompt) setPersonalityPrompt(data.personalityPrompt);
         if (data.tagsInput) setTagsInput(data.tagsInput);
         if (typeof data.isPublic === "boolean") setIsPublic(data.isPublic);
+        if (typeof data.defaultAffectionScore === "number") setDefaultAffectionScore(data.defaultAffectionScore);
+        if (data.defaultMood) setDefaultMood(data.defaultMood);
       }
     } catch (err) {
       console.warn("Could not restore character draft", err);
@@ -212,6 +228,8 @@ export function CreateCharacterModal({ isOpen, onClose, onSubmit }: CreateCharac
           personalityPrompt,
           tagsInput,
           isPublic,
+          defaultAffectionScore,
+          defaultMood,
         };
         localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
       } else {
@@ -256,6 +274,8 @@ export function CreateCharacterModal({ isOpen, onClose, onSubmit }: CreateCharac
     setPersonalityPrompt("");
     setTagsInput("");
     setIsPublic(true);
+    setDefaultAffectionScore(0);
+    setDefaultMood("");
     setError(null);
     try {
       localStorage.removeItem(DRAFT_STORAGE_KEY);
@@ -321,6 +341,9 @@ export function CreateCharacterModal({ isOpen, onClose, onSubmit }: CreateCharac
         greeting: greeting.trim(),
         tags,
         isPublic,
+        defaultAffectionScore,
+        defaultMood: defaultMood.trim() || undefined,
+        customMilestones: customMilestones.length > 0 ? customMilestones : undefined,
       });
 
       // Clear draft on success
@@ -332,6 +355,8 @@ export function CreateCharacterModal({ isOpen, onClose, onSubmit }: CreateCharac
       setName("");
       setTitle("");
       setCategory("Companion");
+      setDefaultAffectionScore(0);
+      setDefaultMood("");
       setAvatarUrl("");
       setRawAvatarImage(null);
       setGreeting("");
@@ -721,7 +746,112 @@ export function CreateCharacterModal({ isOpen, onClose, onSubmit }: CreateCharac
               />
             </div>
 
-            {/* Row 7: Public / Private Switch */}
+            {/* Row 7: Initial Affection & Relationship Level */}
+            <div className="rounded-2xl border border-[#31333a] bg-[#191a1e] p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Heart className="h-4 w-4 text-pink-400" />
+                  <span className="text-xs font-semibold text-zinc-200">
+                    Cột mốc & Hảo cảm khởi đầu (Từ Cừu Hận Đến Tri Kỷ)
+                  </span>
+                </div>
+                <span className="text-xs font-mono font-bold text-pink-400">
+                  {defaultAffectionScore > 0 ? `+${defaultAffectionScore}` : defaultAffectionScore}% ({getAffectionStage(defaultAffectionScore).name})
+                </span>
+              </div>
+
+              {/* Preset buttons */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-1.5">
+                {[
+                  { score: -80, label: "💀 Kẻ Thù", desc: "-80%" },
+                  { score: -40, label: "⚔️ Thù Địch", desc: "-40%" },
+                  { score: 0, label: "👤 Người Lạ", desc: "0%" },
+                  { score: 30, label: "🤝 Người Quen", desc: "+30%" },
+                  { score: 55, label: "🌟 Bạn Thân", desc: "+55%" },
+                  { score: 80, label: "💖 Tri Kỷ", desc: "+80%" },
+                  { score: 95, label: "💍 Linh Hồn", desc: "+95%" },
+                ].map((p) => {
+                  const stage = getAffectionStage(p.score);
+                  const currentSt = getAffectionStage(defaultAffectionScore);
+                  const isSelected = currentSt.level === stage.level;
+
+                  return (
+                    <button
+                      key={p.score}
+                      type="button"
+                      onClick={() => setDefaultAffectionScore(p.score)}
+                      className={`flex flex-col items-center justify-center p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-pink-950/40 border-pink-500/50 text-pink-200 ring-1 ring-pink-500/30"
+                          : "bg-[#212229] border-[#31333d] text-zinc-400 hover:text-zinc-200 hover:bg-[#282a33]"
+                      }`}
+                    >
+                      <span className="text-[11px] font-bold truncate">{p.label}</span>
+                      <span className="text-[10px] text-zinc-500 font-mono">{p.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Range Slider */}
+              <div className="space-y-1 pt-1">
+                <input
+                  type="range"
+                  min="-100"
+                  max="100"
+                  value={defaultAffectionScore}
+                  onChange={(e) => setDefaultAffectionScore(parseInt(e.target.value, 10) || 0)}
+                  className="w-full h-1.5 bg-[#2a2c38] rounded-lg appearance-none cursor-pointer accent-pink-500"
+                />
+                <div className="flex justify-between text-[10px] font-mono text-zinc-500 px-0.5">
+                  <span>-100% (Cực Hận)</span>
+                  <span>0% (Người Lạ)</span>
+                  <span>+100% (Gắn Kết)</span>
+                </div>
+              </div>
+
+              {/* Initial Mood */}
+              <div className="pt-2 border-t border-[#292b34] space-y-1.5">
+                <label className="block text-[11px] font-semibold text-zinc-400">
+                  Tâm trạng khởi đầu của nhân vật (Tùy chọn)
+                </label>
+                <input
+                  type="text"
+                  value={defaultMood}
+                  onChange={(e) => setDefaultMood(e.target.value)}
+                  placeholder="VD: Cực kỳ căm ghét & Sát khí, Khó chịu & Cay cú, Lạnh lùng & Đề phòng, Cởi mở, E thẹn..."
+                  className="w-full rounded-xl border border-[#2d303b] bg-[#16171d] px-3 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:border-[#525562] focus:outline-none transition-colors"
+                />
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {[
+                    "Cực kỳ căm ghét & Sát khí",
+                    "Khó chịu & Cay cú",
+                    "Lạnh lùng & Đề phòng",
+                    "Cởi mở & Thân thiện",
+                    "E thẹn & Ngại ngùng",
+                    "Cung kính & Tận tụy",
+                    "Ấm áp & Dịu dàng",
+                  ].map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setDefaultMood(m)}
+                      className="rounded-lg bg-[#242530] hover:bg-[#2e303d] px-2 py-0.5 text-[10px] text-zinc-400 hover:text-zinc-200 border border-[#363847] transition-all cursor-pointer"
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Row 7.5: Dynamic Relationship Milestones Editor */}
+            <RelationshipMilestonesEditor
+              milestones={customMilestones}
+              onChange={setCustomMilestones}
+            />
+
+            {/* Row 8: Public / Private Switch */}
             <div className="flex items-center justify-between rounded-2xl border border-[#31333a] bg-[#191a1e] p-4">
               <div className="flex items-center gap-3">
                 <div

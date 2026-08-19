@@ -88,6 +88,9 @@ export default function StudioPage() {
         greeting: char.greeting,
         tags: char.tags,
         isPublic: !char.isPublic,
+        defaultAffectionScore: char.defaultAffectionScore,
+        defaultMood: char.defaultMood,
+        customMilestones: char.customMilestones,
       });
       setCharacters((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
     } catch (err) {

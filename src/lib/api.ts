@@ -11,6 +11,7 @@ import {
   UpdateProfileRequest,
   GeneratedCharacterDto,
   ChatMessage,
+  SendMessageResponse,
   User,
 } from "@/types";
 
@@ -290,7 +291,7 @@ export async function deleteChatSession(sessionId: string): Promise<boolean> {
 export async function sendChatMessage(
   sessionId: string,
   content: string
-): Promise<{ userMessage: any; assistantMessage: any }> {
+): Promise<SendMessageResponse> {
   const res = await fetch(`${API_BASE_URL}/chat/messages`, {
     method: "POST",
     headers: {

@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Character, UpdateCharacterRequest } from "@/types";
+import { Character, UpdateCharacterRequest, RelationshipMilestone } from "@/types";
 import { generateCharacterAvatar } from "@/lib/api";
 import { ImageCropperModal } from "@/components/ui/ImageCropperModal";
+import { getAffectionStage } from "@/components/chat/chat.constants";
+import RelationshipMilestonesEditor from "./RelationshipMilestonesEditor";
 import {
   X,
   Edit2,
@@ -56,6 +58,9 @@ export function EditCharacterModal({
   const [greeting, setGreeting] = useState("");
   const [tagsInput, setTagsInput] = useState("");
   const [isPublic, setIsPublic] = useState(true);
+  const [defaultAffectionScore, setDefaultAffectionScore] = useState<number>(0);
+  const [defaultMood, setDefaultMood] = useState<string>("");
+  const [customMilestones, setCustomMilestones] = useState<RelationshipMilestone[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,6 +102,9 @@ export function EditCharacterModal({
       setGreeting(character.greeting || "");
       setTagsInput(character.tags?.join(", ") || "");
       setIsPublic(character.isPublic ?? true);
+      setDefaultAffectionScore(character.defaultAffectionScore ?? 0);
+      setDefaultMood(character.defaultMood || "");
+      setCustomMilestones(character.customMilestones || []);
       setError(null);
     }
   }, [character, isOpen]);
@@ -170,6 +178,9 @@ export function EditCharacterModal({
         greeting: greeting.trim(),
         tags,
         isPublic,
+        defaultAffectionScore,
+        defaultMood: defaultMood.trim() || undefined,
+        customMilestones: customMilestones.length > 0 ? customMilestones : undefined,
       });
       onClose();
     } catch (err: any) {
@@ -179,30 +190,24 @@ export function EditCharacterModal({
     }
   };
 
-  const selectedCategoryObj = CATEGORIES.find((c) => c.id === category) || CATEGORIES[0];
-  const SelectedIcon = selectedCategoryObj.icon;
-
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200">
-        <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border border-[#31333a] bg-[#212227] shadow-2xl overflow-hidden">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 sm:p-6 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="flex flex-col w-full max-w-2xl max-h-[90vh] rounded-3xl border border-[#31333a] bg-[#1d1e23] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
           {/* Fixed Header */}
-          <div className="flex items-center justify-between border-b border-[#2c2e35] px-6 py-5 sm:px-8 sm:py-6 shrink-0 bg-[#212227]">
+          <div className="flex items-center justify-between px-6 py-4 sm:px-8 sm:py-5 border-b border-[#2c2e35] bg-[#1d1e23] shrink-0">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#2b2c34] text-zinc-200 border border-[#3b3d46]">
-                <Edit2 className="h-4 w-4 text-pink-400" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                <Edit2 className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-lg font-extrabold text-zinc-100">
-                  Chỉnh Sửa: <span className="text-white">{character.name}</span>
-                </h2>
-                <p className="text-xs text-zinc-400 mt-0.5">Cập nhật danh hiệu, tính cách, lời chào và ảnh đại diện</p>
+                <h2 className="text-base sm:text-lg font-bold text-zinc-100">Chỉnh sửa nhân vật</h2>
+                <p className="text-xs text-zinc-400">Cập nhật thông tin và bối cảnh cho {character.name}</p>
               </div>
             </div>
-
             <button
               onClick={onClose}
-              className="rounded-xl p-2 text-zinc-400 hover:bg-[#2b2c34] hover:text-zinc-100 transition-colors cursor-pointer"
+              className="rounded-xl p-2 text-zinc-400 hover:bg-[#282930] hover:text-zinc-200 transition-colors"
             >
               <X className="h-5 w-5" />
             </button>
@@ -212,98 +217,104 @@ export function EditCharacterModal({
           <form
             id="edit-character-form"
             onSubmit={handleSubmit}
-            className="flex-1 overflow-y-auto px-6 py-6 sm:px-8 sm:py-7 space-y-4.5 custom-scrollbar"
+            className="flex-1 overflow-y-auto custom-scrollbar p-6 sm:p-8 space-y-6"
           >
             {error && (
-              <div className="rounded-2xl bg-rose-500/10 border border-rose-500/30 p-3.5 text-xs text-rose-400">
+              <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3.5 text-xs text-red-400">
                 {error}
               </div>
             )}
 
-            {/* Row 1: Name & Title */}
+            {/* Row 1: Name */}
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Tên nhân vật *</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="VD: Mina Hoshino, Aria, Kaelen..."
+                className="w-full rounded-2xl border border-[#31333a] bg-[#191a1e] px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-[#525562] focus:bg-[#1e2025] focus:outline-none transition-colors"
+                required
+              />
+            </div>
+
+            {/* Row 2: Title & Category */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Tên nhân vật *</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="VD: Lina, Hiệp Sĩ Bóng Đêm, Elena..."
-                  className="w-full rounded-2xl border border-[#31333a] bg-[#191a1e] px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-[#525562] focus:bg-[#1e2025] focus:outline-none transition-colors"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Danh hiệu / Vai trò *</label>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Danh xưng / Vai trò *</label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="VD: Bạn đồng hành dịu dàng, Phù thủy cổ đại..."
+                  placeholder="VD: Nữ sinh thanh mai trúc mã, Nữ kiếm sĩ..."
                   className="w-full rounded-2xl border border-[#31333a] bg-[#191a1e] px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-[#525562] focus:bg-[#1e2025] focus:outline-none transition-colors"
                   required
                 />
               </div>
-            </div>
 
-            {/* Row 2: Custom Category Dropdown */}
-            <div className="relative" ref={categoryDropdownRef}>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Thể loại *</label>
-              <button
-                type="button"
-                onClick={() => setIsCategoryOpen(!isCategoryOpen)}
-                className="w-full flex items-center justify-between rounded-2xl border border-[#31333a] bg-[#191a1e] px-4 py-2.5 text-sm text-zinc-100 hover:border-[#464954] hover:bg-[#1e2025] transition-all cursor-pointer select-none"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <SelectedIcon className={`h-4 w-4 shrink-0 ${selectedCategoryObj.color}`} />
-                  <span className="font-semibold">{selectedCategoryObj.label}</span>
-                </div>
-                <ChevronDown
-                  className={`h-4 w-4 text-zinc-400 transition-transform duration-200 shrink-0 ${
-                    isCategoryOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-
-              {/* Dropdown Menu */}
-              {isCategoryOpen && (
-                <div className="absolute left-0 right-0 mt-1.5 overflow-hidden rounded-2xl border border-[#31333a] bg-[#212227] p-1.5 shadow-2xl backdrop-blur-xl z-20 animate-in fade-in slide-in-from-top-2">
-                  <div className="space-y-0.5 max-h-48 overflow-y-auto custom-scrollbar">
-                    {CATEGORIES.map((cat) => {
-                      const active = category === cat.id;
-                      const Icon = cat.icon;
+              {/* Category Dropdown */}
+              <div className="relative" ref={categoryDropdownRef}>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Thể loại *</label>
+                <button
+                  type="button"
+                  onClick={() => setIsCategoryOpen(!isCategoryOpen)}
+                  className="flex w-full items-center justify-between rounded-2xl border border-[#31333a] bg-[#191a1e] px-4 py-2.5 text-sm text-zinc-100 focus:border-[#525562] focus:outline-none transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const sel = CATEGORIES.find((c) => c.id === category) || CATEGORIES[0];
+                      const Icon = sel.icon;
                       return (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          onClick={() => {
-                            setCategory(cat.id);
-                            setIsCategoryOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold transition-colors cursor-pointer ${
-                            active
-                              ? "bg-[#2f313a] text-zinc-100 border border-[#3f424c]"
-                              : "text-zinc-300 hover:bg-[#282930] hover:text-white"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <Icon className={`h-4 w-4 ${cat.color}`} />
-                            <span>{cat.label}</span>
-                          </div>
-                          {active && <Check className="h-3.5 w-3.5 text-zinc-100 shrink-0" />}
-                        </button>
+                        <>
+                          <Icon className={`h-4 w-4 ${sel.color}`} />
+                          <span>{sel.label}</span>
+                        </>
                       );
-                    })}
+                    })()}
                   </div>
-                </div>
-              )}
+                  <ChevronDown
+                    className={`h-4 w-4 text-zinc-400 transition-transform ${isCategoryOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                {isCategoryOpen && (
+                  <div className="absolute top-full left-0 right-0 z-30 mt-1.5 overflow-hidden rounded-2xl border border-[#31333a] bg-[#212227] shadow-xl animate-in fade-in zoom-in-95 duration-150">
+                    <div className="p-1.5 space-y-0.5 max-h-56 overflow-y-auto custom-scrollbar">
+                      {CATEGORIES.map((cat) => {
+                        const Icon = cat.icon;
+                        const isSelected = category === cat.id;
+                        return (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => {
+                              setCategory(cat.id);
+                              setIsCategoryOpen(false);
+                            }}
+                            className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
+                              isSelected
+                                ? "bg-[#2d2f36] text-white"
+                                : "text-zinc-400 hover:bg-[#282930] hover:text-zinc-200"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Icon className={`h-3.5 w-3.5 ${cat.color}`} />
+                              <span>{cat.label}</span>
+                            </div>
+                            {isSelected && <Check className="h-3.5 w-3.5 text-amber-400" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Row 3: Centered Avatar Upload / Update Box */}
+            {/* Row 3: Avatar Upload / Update Box */}
             <div>
               <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                Ảnh đại diện nhân vật (Tùy chọn)
+                Ảnh đại diện nhân vật
               </label>
               <input
                 type="file"
@@ -316,17 +327,18 @@ export function EditCharacterModal({
               <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-[#31333a] bg-[#191a1e]/90 p-6 sm:p-7 text-center transition-all">
                 {avatarUrl ? (
                   <>
-                    <div className="relative group">
+                    <div className="relative group flex items-center justify-center">
                       <img
                         src={avatarUrl}
                         alt="Avatar Preview"
-                        className="h-20 w-20 sm:h-24 sm:w-24 rounded-full object-cover border-2 border-[#3b3d46] shadow-2xl ring-4 ring-black/30"
+                        className="h-20 w-20 sm:h-24 sm:w-24 rounded-full object-cover border-2 border-[#3b3d46] shadow-2xl ring-4 ring-black/30 bg-[#212227]"
                       />
+                      {isGeneratingAvatar && (
+                        <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-xs">
+                          <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+                        </div>
+                      )}
                     </div>
-
-                    <p className="mt-3.5 max-w-sm text-xs sm:text-sm font-normal text-zinc-300 leading-relaxed">
-                      Bạn đã thiết lập ảnh đại diện. Chọn ảnh mới hoặc chỉnh sửa ảnh hiện tại.
-                    </p>
 
                     <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
                       <button
@@ -334,7 +346,6 @@ export function EditCharacterModal({
                         onClick={handleGenerateAvatarAi}
                         disabled={isGeneratingAvatar}
                         className="flex items-center gap-1.5 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-300 px-4 py-2 text-xs font-bold text-zinc-950 shadow-md hover:from-amber-300 hover:to-amber-200 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-                        title="AI sẽ dựa vào tên và tính cách để vẽ lại một Avatar Anime khác"
                       >
                         {isGeneratingAvatar ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-950" />
@@ -360,17 +371,7 @@ export function EditCharacterModal({
                         }}
                         className="rounded-2xl border border-[#3b3d46] bg-[#2b2c34] px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-[#353740] hover:text-white active:scale-95 transition-all cursor-pointer"
                       >
-                        Chỉnh sửa ảnh
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAvatarUrl("");
-                          setRawAvatarImage(null);
-                        }}
-                        className="rounded-2xl border border-transparent px-3 py-2 text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-950/20 transition-all cursor-pointer"
-                      >
-                        Xóa ảnh
+                        Chỉnh sửa
                       </button>
                     </div>
                   </>
@@ -379,7 +380,6 @@ export function EditCharacterModal({
                     <div
                       onClick={() => !isGeneratingAvatar && handleGenerateAvatarAi()}
                       className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full border-2 border-dashed border-[#3b3d46] bg-[#212227] text-zinc-400 hover:border-amber-400/60 hover:text-amber-300 cursor-pointer shadow-inner transition-all group"
-                      title="Bấm để AI tự động phác họa Avatar"
                     >
                       {isGeneratingAvatar ? (
                         <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
@@ -387,31 +387,20 @@ export function EditCharacterModal({
                         <Sparkles className="h-6 w-6 group-hover:scale-110 text-amber-400/80 group-hover:text-amber-300 transition-transform" />
                       )}
                     </div>
-
-                    <p className="mt-3 max-w-sm text-xs sm:text-sm font-normal text-zinc-400 leading-relaxed">
-                      Chưa có ảnh đại diện. Bạn có thể để <span className="text-amber-300 font-semibold">AI tự phác họa hình ảnh</span> hoặc chọn ảnh từ máy tính.
-                    </p>
-
-                    <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                    <div className="mt-4 flex gap-3">
                       <button
                         type="button"
                         onClick={handleGenerateAvatarAi}
                         disabled={isGeneratingAvatar}
-                        className="flex items-center gap-1.5 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-300 px-4 py-2 text-xs font-bold text-zinc-950 shadow-md hover:from-amber-300 hover:to-amber-200 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-                        title="AI sẽ tự động phác họa bức tranh chân dung phù hợp với nhân vật"
+                        className="flex items-center gap-1.5 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-300 px-4 py-2 text-xs font-bold text-zinc-950 shadow-md"
                       >
-                        {isGeneratingAvatar ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-950" />
-                        ) : (
-                          <Sparkles className="h-3.5 w-3.5 text-zinc-950" />
-                        )}
-                        <span>{isGeneratingAvatar ? "Đang vẽ ảnh..." : "AI Tự Vẽ Avatar"}</span>
+                        <Sparkles className="h-3.5 w-3.5" />
+                        <span>AI Tự Vẽ Avatar</span>
                       </button>
-
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="rounded-2xl bg-zinc-100 px-4 py-2 text-xs font-bold text-zinc-950 shadow-md hover:bg-white active:scale-95 transition-all cursor-pointer"
+                        className="rounded-2xl bg-zinc-100 px-4 py-2 text-xs font-bold text-zinc-950 shadow-md"
                       >
                         Chọn ảnh từ máy
                       </button>
@@ -428,7 +417,6 @@ export function EditCharacterModal({
                 rows={3}
                 value={greeting}
                 onChange={(e) => setGreeting(e.target.value)}
-                placeholder="VD: *mỉm cười dịu dàng bước tới gần bạn* Chào bạn! Hôm nay của bạn thế nào?..."
                 className="w-full rounded-2xl border border-[#31333a] bg-[#191a1e] p-4 text-sm text-zinc-100 placeholder-zinc-500 focus:border-[#525562] focus:bg-[#1e2025] focus:outline-none transition-colors leading-relaxed resize-none"
                 required
               />
@@ -443,7 +431,6 @@ export function EditCharacterModal({
                 rows={4}
                 value={personalityPrompt}
                 onChange={(e) => setPersonalityPrompt(e.target.value)}
-                placeholder="VD: Bạn là một cô gái dịu dàng, ấm áp. Luôn xưng 'mình' gọi 'bạn', biết lắng nghe chân thành..."
                 className="w-full rounded-2xl border border-[#31333a] bg-[#191a1e] p-4 text-sm text-zinc-100 placeholder-zinc-500 focus:border-[#525562] focus:bg-[#1e2025] focus:outline-none transition-colors leading-relaxed resize-none"
                 required
               />
@@ -451,19 +438,121 @@ export function EditCharacterModal({
 
             {/* Row 6: Tags */}
             <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                Thẻ từ khóa (cách nhau bằng dấu phẩy)
-              </label>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Thẻ từ khóa (cách nhau bằng dấu phẩy)</label>
               <input
                 type="text"
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
-                placeholder="VD: dịu dàng, lắng nghe, anime, tâm sự, kỳ ảo..."
                 className="w-full rounded-2xl border border-[#31333a] bg-[#191a1e] px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-[#525562] focus:bg-[#1e2025] focus:outline-none transition-colors"
               />
             </div>
 
-            {/* Row 7: Public / Private Switch */}
+            {/* Row 7: Initial Affection & Relationship Level */}
+            <div className="rounded-2xl border border-[#31333a] bg-[#191a1e] p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Heart className="h-4 w-4 text-pink-400" />
+                  <span className="text-xs font-semibold text-zinc-200">
+                    Cột mốc & Hảo cảm khởi đầu (Từ Cừu Hận Đến Tri Kỷ)
+                  </span>
+                </div>
+                <span className="text-xs font-mono font-bold text-pink-400">
+                  {defaultAffectionScore > 0 ? `+${defaultAffectionScore}` : defaultAffectionScore}% ({getAffectionStage(defaultAffectionScore).name})
+                </span>
+              </div>
+
+              {/* Preset buttons */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-1.5">
+                {[
+                  { score: -80, label: "💀 Kẻ Thù", desc: "-80%" },
+                  { score: -40, label: "⚔️ Thù Địch", desc: "-40%" },
+                  { score: 0, label: "👤 Người Lạ", desc: "0%" },
+                  { score: 30, label: "🤝 Người Quen", desc: "+30%" },
+                  { score: 55, label: "🌟 Bạn Thân", desc: "+55%" },
+                  { score: 80, label: "💖 Tri Kỷ", desc: "+80%" },
+                  { score: 95, label: "💍 Linh Hồn", desc: "+95%" },
+                ].map((p) => {
+                  const stage = getAffectionStage(p.score);
+                  const currentSt = getAffectionStage(defaultAffectionScore);
+                  const isSelected = currentSt.level === stage.level;
+
+                  return (
+                    <button
+                      key={p.score}
+                      type="button"
+                      onClick={() => setDefaultAffectionScore(p.score)}
+                      className={`flex flex-col items-center justify-center p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-pink-950/40 border-pink-500/50 text-pink-200 ring-1 ring-pink-500/30"
+                          : "bg-[#212229] border-[#31333d] text-zinc-400 hover:text-zinc-200 hover:bg-[#282a33]"
+                      }`}
+                    >
+                      <span className="text-[11px] font-bold truncate">{p.label}</span>
+                      <span className="text-[10px] text-zinc-500 font-mono">{p.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Range Slider */}
+              <div className="space-y-1 pt-1">
+                <input
+                  type="range"
+                  min="-100"
+                  max="100"
+                  value={defaultAffectionScore}
+                  onChange={(e) => setDefaultAffectionScore(parseInt(e.target.value, 10) || 0)}
+                  className="w-full h-1.5 bg-[#2a2c38] rounded-lg appearance-none cursor-pointer accent-pink-500"
+                />
+                <div className="flex justify-between text-[10px] font-mono text-zinc-500 px-0.5">
+                  <span>-100% (Cực Hận)</span>
+                  <span>0% (Người Lạ)</span>
+                  <span>+100% (Gắn Kết)</span>
+                </div>
+              </div>
+
+              {/* Initial Mood */}
+              <div className="pt-2 border-t border-[#292b34] space-y-1.5">
+                <label className="block text-[11px] font-semibold text-zinc-400">
+                  Tâm trạng khởi đầu của nhân vật (Tùy chọn)
+                </label>
+                <input
+                  type="text"
+                  value={defaultMood}
+                  onChange={(e) => setDefaultMood(e.target.value)}
+                  placeholder="VD: Cực kỳ căm ghét & Sát khí, Khó chịu & Cay cú, Lạnh lùng & Đề phòng, Cởi mở, E thẹn..."
+                  className="w-full rounded-xl border border-[#2d303b] bg-[#16171d] px-3 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:border-[#525562] focus:outline-none transition-colors"
+                />
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {[
+                    "Cực kỳ căm ghét & Sát khí",
+                    "Khó chịu & Cay cú",
+                    "Lạnh lùng & Đề phòng",
+                    "Cởi mở & Thân thiện",
+                    "E thẹn & Ngại ngùng",
+                    "Cung kính & Tận tụy",
+                    "Ấm áp & Dịu dàng",
+                  ].map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setDefaultMood(m)}
+                      className="rounded-lg bg-[#242530] hover:bg-[#2e303d] px-2 py-0.5 text-[10px] text-zinc-400 hover:text-zinc-200 border border-[#363847] transition-all cursor-pointer"
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Row 7.5: Dynamic Relationship Milestones Editor */}
+            <RelationshipMilestonesEditor
+              milestones={customMilestones}
+              onChange={setCustomMilestones}
+            />
+
+            {/* Row 8: Public / Private Switch */}
             <div className="flex items-center justify-between rounded-2xl border border-[#31333a] bg-[#191a1e] p-4">
               <div className="flex items-center gap-3">
                 <div
@@ -518,26 +607,26 @@ export function EditCharacterModal({
               type="submit"
               form="edit-character-form"
               disabled={isSubmitting}
-              className="flex items-center gap-2 rounded-xl bg-zinc-100 px-5 py-2 text-xs font-bold text-zinc-950 shadow-md hover:bg-white disabled:opacity-50 transition-all active:scale-95 cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl bg-amber-400 px-5 py-2 text-xs font-bold text-zinc-950 hover:bg-amber-300 transition-colors cursor-pointer disabled:opacity-50 shadow-md"
             >
               {isSubmitting ? (
-                <Loader2 className="h-4 w-4 animate-spin text-zinc-900" />
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Đang lưu...</span>
+                </>
               ) : (
-                <Check className="h-4 w-4 text-zinc-900" />
+                <span>Lưu thay đổi</span>
               )}
-              <span>{isSubmitting ? "Đang lưu..." : "Lưu Thay Đổi"}</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Image Cropper Modal */}
       <ImageCropperModal
         isOpen={isCropperOpen}
         onClose={() => setIsCropperOpen(false)}
-        imageSrc={rawAvatarImage || avatarUrl || null}
+        imageSrc={rawAvatarImage || avatarUrl}
         onSave={handleCropSave}
-        outputSize={512}
       />
     </>
   );
