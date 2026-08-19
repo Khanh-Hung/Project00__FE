@@ -13,6 +13,7 @@ import {
   ChatMessage,
   SendMessageResponse,
   User,
+  CharacterMemory,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
@@ -343,7 +344,7 @@ export async function fetchRoleplaySuggestions(sessionId: string): Promise<strin
   }
 }
 
-export async function generateCharacterWithAi(
+export async function generateCharacterWithAI(
   idea: string,
   category?: string
 ): Promise<GeneratedCharacterDto> {
@@ -368,7 +369,9 @@ export async function generateCharacterWithAi(
   return data;
 }
 
-export async function fetchAiRandomIdeas(count = 3): Promise<string[]> {
+export const generateCharacterWithAi = generateCharacterWithAI;
+
+export async function fetchAIRandomIdeas(count = 3): Promise<string[]> {
   try {
     const res = await fetch(`${API_BASE_URL}/characters/generate-ideas?count=${count}`, {
       cache: "no-store",
@@ -382,6 +385,8 @@ export async function fetchAiRandomIdeas(count = 3): Promise<string[]> {
     return [];
   }
 }
+
+export const fetchAiRandomIdeas = fetchAIRandomIdeas;
 
 export async function generateCharacterAvatar(req: {
   name?: string;
@@ -439,3 +444,21 @@ export async function generateSceneImage(req: {
   }
   return { imageUrl: data.avatarUrl, prompt: data.prompt };
 }
+
+export async function fetchCharacterMemories(characterId: string, limit: number = 30): Promise<CharacterMemory[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/chat/memories/${characterId}?limit=${limit}`, {
+      headers: {
+        ...getAuthHeader(),
+      },
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json?.data || json?.value || [];
+  } catch (error) {
+    console.warn(`[API] Could not fetch memories for character ${characterId}:`, error);
+    return [];
+  }
+}
+

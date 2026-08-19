@@ -42,6 +42,46 @@ export interface RelationshipMilestone {
   icon?: string;
 }
 
+export interface PsychologyProfile {
+  desires?: string;
+  fears?: string;
+  insecurities?: string;
+  coreBeliefs?: string;
+  internalConflicts?: string;
+  values?: string;
+}
+
+export interface BehaviorProfile {
+  whenHappy?: string;
+  whenSad?: string;
+  whenAngry?: string;
+  whenTeased?: string;
+  whenPraised?: string;
+  whenRejected?: string;
+}
+
+export interface ExpressionProfile {
+  speechStyle?: string;
+  formality?: string;
+  humorStyle?: string;
+  emojiUsage?: string;
+  typicalPhrases?: string[];
+}
+
+export interface CharacterRules {
+  mustDo?: string[];
+  mustNotDo?: string[];
+  antiSycophancy?: string;
+  boundaries?: string[];
+}
+
+export interface CharacterBlueprint {
+  psychology?: PsychologyProfile;
+  behavior?: BehaviorProfile;
+  expression?: ExpressionProfile;
+  rules?: CharacterRules;
+}
+
 export interface Character {
   id: string;
   name: string;
@@ -60,6 +100,7 @@ export interface Character {
   defaultAffectionScore?: number;
   defaultMood?: string;
   customMilestones?: RelationshipMilestone[];
+  blueprint?: CharacterBlueprint;
 }
 
 export interface CreateCharacterRequest {
@@ -74,6 +115,7 @@ export interface CreateCharacterRequest {
   defaultAffectionScore?: number;
   defaultMood?: string;
   customMilestones?: RelationshipMilestone[];
+  blueprint?: CharacterBlueprint;
 }
 
 export interface UpdateCharacterRequest {
@@ -88,6 +130,7 @@ export interface UpdateCharacterRequest {
   defaultAffectionScore?: number;
   defaultMood?: string;
   customMilestones?: RelationshipMilestone[];
+  blueprint?: CharacterBlueprint;
 }
 
 export interface GeneratedCharacterDto {
@@ -100,6 +143,7 @@ export interface GeneratedCharacterDto {
   defaultAffectionScore?: number;
   defaultMood?: string;
   customMilestones?: RelationshipMilestone[];
+  blueprint?: CharacterBlueprint;
 }
 
 export enum MessageRole {
@@ -155,8 +199,27 @@ export interface SendMessageResponse {
   levelUp: boolean;
 }
 
+export enum MemoryType {
+  UserFact = 1,
+  UserPreference = 2,
+  RelationshipEvent = 3,
+  Secret = 4,
+  WorldFact = 5,
+}
+
+export interface CharacterMemory {
+  id: string;
+  content: string;
+  type: MemoryType | string | number;
+  importance: number;
+  confidence: number;
+  createdAt: string;
+  lastAccessedAt?: string | null;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data: T;
   errors: string[];
 }
+
