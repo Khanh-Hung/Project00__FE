@@ -54,15 +54,45 @@ export interface AffectionStage {
 
 export const AFFECTION_STAGES: AffectionStage[] = [
   {
+    level: -2,
+    name: "Kẻ Thù Truyền Kiếp",
+    minScore: -100,
+    maxScore: -61,
+    color: "text-red-400",
+    heartColor: "text-red-500 fill-red-600/60 animate-pulse",
+    badgeBg: "bg-red-950/80",
+    badgeBorder: "border-red-800/80",
+    barGradient: "from-red-900 via-rose-800 to-red-600",
+    description: "Nhân vật căm thù bạn tột cùng, luôn đe dọa, khinh bỉ và sẵn sàng tấn công hoặc trừng phạt bạn.",
+    perks: ["Căm ghét & Đe dọa", "Lời thoại lạnh lùng tàn nhẫn", "Rút vũ khí cảnh cáo"],
+    currentMood: "Cực kỳ căm ghét & Sát khí",
+    interactionTip: "Hãy cẩn trọng từng lời nói, chứng minh lòng thành hoặc cứu nguy nàng để giải tỏa cừu hận.",
+  },
+  {
+    level: -1,
+    name: "Thù Địch & Ác Cảm",
+    minScore: -60,
+    maxScore: -21,
+    color: "text-amber-400",
+    heartColor: "text-amber-500 fill-amber-600/40",
+    badgeBg: "bg-amber-950/70",
+    badgeBorder: "border-amber-800/60",
+    barGradient: "from-amber-900 to-orange-600",
+    description: "Nhân vật có ác cảm sâu sắc, thường xuyên mỉa mai, hoài nghi và từ chối hợp tác.",
+    perks: ["Mỉa mai & Khó chịu", "Đề phòng cao độ", "Cự tuyệt tiếp xúc gần"],
+    currentMood: "Khó chịu & Cay cú",
+    interactionTip: "Đừng tỏ ra giả tạo, hãy đối xử thẳng thắn và kiên nhẫn lắng nghe những ấm ức của nàng.",
+  },
+  {
     level: 1,
     name: "Người Lạ",
-    minScore: 0,
+    minScore: -20,
     maxScore: 20,
     color: "text-zinc-400",
     heartColor: "text-zinc-400 fill-zinc-500/20",
     badgeBg: "bg-zinc-800/80",
     badgeBorder: "border-zinc-700",
-    barGradient: "from-zinc-500 to-zinc-400",
+    barGradient: "from-zinc-600 to-zinc-400",
     description: "Nhân vật còn giữ khoảng cách, giao tiếp lịch thiệp và thận trọng quan sát bạn.",
     perks: ["Khám phá bối cảnh ban đầu", "Trò chuyện làm quen"],
     currentMood: "Lịch thiệp & Dè dặt",
@@ -131,7 +161,8 @@ export const AFFECTION_STAGES: AffectionStage[] = [
 ];
 
 export function getAffectionStage(score: number): AffectionStage {
-  return AFFECTION_STAGES.find((s) => score >= s.minScore && score <= s.maxScore) || AFFECTION_STAGES[0];
+  const s = Math.min(100, Math.max(-100, score));
+  return AFFECTION_STAGES.find((st) => s >= st.minScore && s <= st.maxScore) || AFFECTION_STAGES[2];
 }
 
 export type ChatTheme =

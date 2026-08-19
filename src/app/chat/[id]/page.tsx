@@ -15,9 +15,10 @@ import {
   Sparkles,
   Home,
 } from "lucide-react";
-import { ChatMessage, ChatSession, ChatSessionListItem, MessageRole } from "@/types";
+import { ChatMessage, ChatSession, ChatSessionListItem, MessageRole, Character } from "@/types";
 import {
   fetchChatSession,
+  fetchCharacterById,
   sendChatMessage,
   createChatSession,
   rollbackChatMessage,
@@ -72,7 +73,8 @@ export default function ChatPage() {
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
   // Affection & Emotion Level
-  const [affectionScore, setAffectionScore] = useState<number>(35);
+  const [affectionScore, setAffectionScore] = useState<number>(0);
+  const [character, setCharacter] = useState<Character | null>(null);
   const [levelUpNotif, setLevelUpNotif] = useState<any | null>(null);
 
   // Interaction State
@@ -105,36 +107,7 @@ export default function ChatPage() {
     }
   };
 
-  // Load Affection Score
-  useEffect(() => {
-    if (!sessionId) return;
-    const key = `roleplay_affection_${sessionId}`;
-    const saved = localStorage.getItem(key);
-    if (saved) {
-      const num = parseInt(saved, 10);
-      if (!isNaN(num)) setAffectionScore(Math.min(100, Math.max(0, num)));
-    } else {
-      const base = 25 + (sessionId.charCodeAt(0) % 20);
-      setAffectionScore(base);
-      localStorage.setItem(key, String(base));
-    }
-  }, [sessionId]);
-
-  const addAffection = (pts: number) => {
-    setAffectionScore((prev) => {
-      const next = Math.min(100, Math.max(0, prev + pts));
-      localStorage.setItem(`roleplay_affection_${sessionId}`, String(next));
-      const oldSt = getAffectionStage(prev);
-      const newSt = getAffectionStage(next);
-      if (newSt.level > oldSt.level) {
-        setLevelUpNotif(newSt);
-        setTimeout(() => setLevelUpNotif(null), 4500);
-      }
-      return next;
-    });
-  };
-
-  // Fetch Current Session & Messages
+  // Fetch Current Session & Messages (with Real Database Affection Score)
   useEffect(() => {
     if (!sessionId) return;
     let isMounted = true;
@@ -150,6 +123,17 @@ export default function ChatPage() {
         }
         setSession(data);
         setMessages(data.messages || []);
+        if (typeof data.affectionScore === "number") {
+          setAffectionScore(data.affectionScore);
+        }
+
+        if (data.characterId) {
+          fetchCharacterById(data.characterId)
+            .then((char) => {
+              if (isMounted && char) setCharacter(char);
+            })
+            .catch(() => {});
+        }
       })
       .catch((err) => {
         if (!isMounted) return;
@@ -203,7 +187,7 @@ export default function ChatPage() {
     }
   };
 
-  // Send Message
+  // Send Message with Real Backend Affection Updates
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!inputMessage.trim() || isSending) return;
@@ -228,7 +212,28 @@ export default function ChatPage() {
         response.userMessage,
         response.assistantMessage,
       ]);
-      addAffection(2);
+
+      if (typeof response.affectionScore === "number") {
+        const oldSt = getAffectionStage(affectionScore);
+        const newSt = getAffectionStage(response.affectionScore);
+        setAffectionScore(response.affectionScore);
+
+        if (response.levelUp || newSt.level > oldSt.level) {
+          setLevelUpNotif(newSt);
+          setTimeout(() => setLevelUpNotif(null), 4500);
+        }
+
+        setSession((prev) =>
+          prev
+            ? {
+                ...prev,
+                affectionScore: response.affectionScore,
+                relationshipLevel: response.relationshipLevel,
+                currentMood: response.currentMood,
+              }
+            : null
+        );
+      }
     } catch (err: any) {
       console.error("Error sending message", err);
       alert(err.message || "Không thể gửi tin nhắn. Vui lòng thử lại!");
@@ -280,7 +285,28 @@ export default function ChatPage() {
         response.userMessage,
         response.assistantMessage,
       ]);
-      addAffection(3);
+
+      if (typeof response.affectionScore === "number") {
+        const oldSt = getAffectionStage(affectionScore);
+        const newSt = getAffectionStage(response.affectionScore);
+        setAffectionScore(response.affectionScore);
+
+        if (response.levelUp || newSt.level > oldSt.level) {
+          setLevelUpNotif(newSt);
+          setTimeout(() => setLevelUpNotif(null), 4500);
+        }
+
+        setSession((prev) =>
+          prev
+            ? {
+                ...prev,
+                affectionScore: response.affectionScore,
+                relationshipLevel: response.relationshipLevel,
+                currentMood: response.currentMood,
+              }
+            : null
+        );
+      }
     } catch (err: any) {
       console.error("Error continuing story", err);
       alert(err.message || "Không thể tiếp tục câu chuyện. Vui lòng thử lại!");
@@ -724,6 +750,7 @@ export default function ChatPage() {
         currentStage={currentStage}
         affectionScore={affectionScore}
         onOpenAffectionModal={() => setShowAffectionModal(true)}
+        character={character}
       />
       </div>
 
@@ -769,6 +796,7 @@ export default function ChatPage() {
         currentStage={currentStage}
         affectionScore={affectionScore}
         theme={theme}
+        character={character}
       />
     </div>
   );

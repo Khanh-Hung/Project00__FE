@@ -2,7 +2,7 @@
 
 import React from "react";
 import { User as UserIcon, Heart } from "lucide-react";
-import { ChatSession } from "@/types";
+import { ChatSession, Character } from "@/types";
 import { AffectionStage, CATEGORY_MAP, formatPersonalityForUser } from "./chat.constants";
 
 interface CharacterProfileSidebarProps {
@@ -11,6 +11,7 @@ interface CharacterProfileSidebarProps {
   currentStage: AffectionStage;
   affectionScore: number;
   onOpenAffectionModal: () => void;
+  character?: Character | null;
 }
 
 export const CharacterProfileSidebar: React.FC<CharacterProfileSidebarProps> = ({
@@ -19,7 +20,13 @@ export const CharacterProfileSidebar: React.FC<CharacterProfileSidebarProps> = (
   currentStage,
   affectionScore,
   onOpenAffectionModal,
+  character,
 }) => {
+  const matchedCustom = character?.customMilestones?.find(
+    (m) => affectionScore >= m.minScore && affectionScore <= m.maxScore
+  );
+  const milestoneDisplayName = matchedCustom ? matchedCustom.name : currentStage.name;
+
   return (
     <aside
       className={`flex flex-col h-full min-h-0 border-l border-[#26272e] bg-[#18191e] transition-all duration-300 ease-in-out shrink-0 z-20 overflow-hidden ${
@@ -66,11 +73,11 @@ export const CharacterProfileSidebar: React.FC<CharacterProfileSidebarProps> = (
               <div className="flex items-center gap-2">
                 <Heart className={`h-4 w-4 ${currentStage.heartColor}`} />
                 <span className={`text-xs font-bold ${currentStage.color}`}>
-                  Cấp {currentStage.level}: {currentStage.name}
+                  {milestoneDisplayName}
                 </span>
               </div>
-              <span className="text-xs font-mono font-bold text-pink-400">
-                {affectionScore} / 100
+              <span className="text-xs font-mono font-bold text-zinc-300">
+                {affectionScore > 0 ? `+${affectionScore}` : affectionScore} / 100
               </span>
             </div>
 
@@ -78,7 +85,7 @@ export const CharacterProfileSidebar: React.FC<CharacterProfileSidebarProps> = (
             <div className="h-2 w-full overflow-hidden rounded-full bg-black/60">
               <div
                 className={`h-full rounded-full bg-gradient-to-r ${currentStage.barGradient} transition-all duration-500`}
-                style={{ width: `${affectionScore}%` }}
+                style={{ width: `${Math.max(4, Math.min(100, (affectionScore + 100) / 2))}%` }}
               />
             </div>
 
@@ -86,7 +93,7 @@ export const CharacterProfileSidebar: React.FC<CharacterProfileSidebarProps> = (
             <div className="flex items-center gap-1.5 text-xs text-zinc-300 pt-1 border-t border-[#2c2e35]/60">
               <span className="text-zinc-500 text-[11px]">Tâm trạng:</span>
               <span className="font-semibold text-pink-300 bg-pink-950/40 px-2 py-0.5 rounded-lg border border-pink-800/30 text-[11px]">
-                {currentStage.currentMood}
+                {session?.currentMood || currentStage.currentMood}
               </span>
             </div>
 
@@ -95,7 +102,7 @@ export const CharacterProfileSidebar: React.FC<CharacterProfileSidebarProps> = (
               onClick={onOpenAffectionModal}
               className="w-full rounded-xl bg-[#2b2c36] hover:bg-[#343642] py-2 text-center text-xs font-semibold text-zinc-300 hover:text-white transition-all cursor-pointer border border-[#3b3d4a]"
             >
-              Xem chi tiết 5 cột mốc & đặc quyền →
+              Xem chi tiết cột mốc & đặc quyền →
             </button>
           </div>
 
