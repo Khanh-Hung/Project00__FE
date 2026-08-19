@@ -14,6 +14,8 @@ interface AuthContextType {
   openAuthModal: () => void;
   closeAuthModal: () => void;
   isAuthModalOpen: boolean;
+  updateUser: (updatedUser: User) => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,6 +24,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  const refreshUser = async () => {
+    try {
+      const currentUser = await fetchCurrentUser();
+      setUser(currentUser);
+    } catch (err) {
+      console.warn("[Auth] Failed to refresh user", err);
+    }
+  };
 
   useEffect(() => {
     const initAuth = async () => {
@@ -55,6 +66,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAuthModalOpen(false);
   };
 
+  const updateUser = (updatedUser: User) => {
+    setUser(updatedUser);
+  };
+
   const logout = () => {
     localStorage.removeItem("nyxoris_auth_token");
     setUser(null);
@@ -75,6 +90,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         openAuthModal,
         closeAuthModal,
         isAuthModalOpen,
+        updateUser,
+        refreshUser,
       }}
     >
       {children}

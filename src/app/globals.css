@@ -127,3 +127,9 @@ textarea {
   resize: none !important;
   field-sizing: content;
 }
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}

@@ -2,20 +2,31 @@ export interface User {
   id: string;
   email: string;
   userName: string;
+  displayName: string;
   avatarUrl: string;
   createdAt: string;
+  lastUserNameChangedAt?: string | null;
+  canChangeUserName?: boolean;
+  nextUserNameChangeDate?: string | null;
 }
 
 export interface RegisterRequest {
   email: string;
   password: string;
-  userName: string;
+  userName?: string;
+  displayName?: string;
   avatarUrl?: string;
 }
 
 export interface LoginRequest {
   email: string;
   password: string;
+}
+
+export interface UpdateProfileRequest {
+  displayName?: string;
+  avatarUrl?: string;
+  userName?: string;
 }
 
 export interface AuthResponse {
@@ -36,6 +47,7 @@ export interface Character {
   createdAt: string;
   createdBy?: string;
   creatorName?: string;
+  creatorUserName?: string;
   creatorAvatar?: string;
 }
 

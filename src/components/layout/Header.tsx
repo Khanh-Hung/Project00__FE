@@ -15,6 +15,7 @@ import {
   LogIn,
   LogOut,
   ChevronRight,
+  Sparkles,
 } from "lucide-react";
 
 interface HeaderProps {
@@ -175,11 +176,12 @@ export function Header({ onOpenCreate }: HeaderProps) {
                         />
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-bold text-zinc-100 group-hover:text-white transition-colors truncate">
-                            {user.userName}
+                            {user.displayName || user.userName || "User"}
                           </p>
-                          <span className="inline-block mt-1 rounded-md bg-[#2b2c33] px-1.5 py-0.5 text-[9px] font-semibold text-zinc-300 border border-[#3b3d46]">
-                            Gói: Miễn phí
-                          </span>
+                          <div className="flex items-center gap-1 text-[11px] text-zinc-400 font-medium mt-0.5">
+                            <Sparkles className="h-3 w-3 text-zinc-400 shrink-0" />
+                            <span>Gói: Miễn phí</span>
+                          </div>
                         </div>
                       </div>
                       <ChevronRight className="h-4 w-4 text-zinc-400 group-hover:text-zinc-200 transition-colors shrink-0" />

@@ -8,6 +8,7 @@ import {
   LoginRequest,
   RegisterRequest,
   UpdateCharacterRequest,
+  UpdateProfileRequest,
   GeneratedCharacterDto,
   ChatMessage,
   User,
@@ -76,15 +77,14 @@ export async function loginUser(req: LoginRequest): Promise<AuthResponse> {
 }
 
 export async function registerUser(req: RegisterRequest): Promise<AuthResponse> {
-  const name = req.userName || "User";
   const res = await fetch(`${API_BASE_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       email: req.email,
       password: req.password,
-      userName: name,
-      fullName: name,
+      userName: req.userName || undefined,
+      displayName: req.displayName || "User",
       avatarUrl: req.avatarUrl || null,
     }),
   });
@@ -94,6 +94,24 @@ export async function registerUser(req: RegisterRequest): Promise<AuthResponse> 
     throw new Error(localizeError(rawError, "Đăng ký không thành công. Vui lòng thử lại!"));
   }
   const json: ApiResponse<AuthResponse> = await res.json();
+  return json.data;
+}
+
+export async function updateUserProfile(req: UpdateProfileRequest): Promise<User> {
+  const res = await fetch(`${API_BASE_URL}/auth/profile`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => null);
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Không thể cập nhật hồ sơ. Vui lòng thử lại!"));
+  }
+  const json: ApiResponse<User> = await res.json();
   return json.data;
 }
 
@@ -308,6 +326,22 @@ export async function rollbackChatMessage(
   return true;
 }
 
+export async function fetchRoleplaySuggestions(sessionId: string): Promise<string[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/chat/sessions/${sessionId}/suggestions`, {
+      headers: { ...getAuthHeader() },
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const data = json?.data ?? json?.value ?? json;
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.warn("Could not fetch roleplay suggestions:", err);
+    return [];
+  }
+}
+
 export async function generateCharacterWithAi(
   idea: string,
   category?: string
@@ -333,7 +367,7 @@ export async function generateCharacterWithAi(
   return data;
 }
 
-export async function fetchAiRandomIdeas(count = 4): Promise<string[]> {
+export async function fetchAiRandomIdeas(count = 3): Promise<string[]> {
   try {
     const res = await fetch(`${API_BASE_URL}/characters/generate-ideas?count=${count}`, {
       cache: "no-store",
@@ -346,4 +380,61 @@ export async function fetchAiRandomIdeas(count = 4): Promise<string[]> {
     console.warn("Could not fetch AI random ideas:", err);
     return [];
   }
+}
+
+export async function generateCharacterAvatar(req: {
+  name?: string;
+  title?: string;
+  category?: string;
+  personalityPrompt?: string;
+  idea?: string;
+}): Promise<{ avatarUrl: string; prompt: string }> {
+  const res = await fetch(`${API_BASE_URL}/characters/generate-avatar`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => null);
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Không thể vẽ ảnh đại diện bằng AI lúc này. Vui lòng thử lại!"));
+  }
+  const json = await res.json();
+  const data = json?.data ?? json?.value ?? json;
+  if (!data || !data.avatarUrl) {
+    throw new Error("Không nhận được ảnh đại diện từ AI.");
+  }
+  return data;
+}
+
+export async function generateSceneImage(req: {
+  sessionId?: string;
+  characterName?: string;
+  characterTitle?: string;
+  characterPersonality?: string;
+  messageContent: string;
+  userMessageContent?: string;
+}): Promise<{ imageUrl: string; prompt: string }> {
+  const res = await fetch(`${API_BASE_URL}/chat/imagine-scene`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => null);
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Không thể phác họa khoảnh khắc này. Vui lòng thử lại!"));
+  }
+  const json = await res.json();
+  const data = json?.data ?? json?.value ?? json;
+  if (!data || !data.avatarUrl) {
+    throw new Error("Không nhận được hình ảnh minh họa từ AI.");
+  }
+  return { imageUrl: data.avatarUrl, prompt: data.prompt };
 }
