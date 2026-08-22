@@ -1,11 +1,17 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { CreateCharacterRequest, RelationshipMilestone } from "@/types";
+import {
+  CreateCharacterRequest,
+  RelationshipMilestone,
+  WorldGenre,
+  CharacterBlueprint,
+  CharacterVisualIdentity,
+  CharacterVoiceProfile,
+  CreateLorebookEntryDto,
+} from "@/types";
 import { generateCharacterWithAi, fetchAiRandomIdeas, generateCharacterAvatar } from "@/lib/api";
 import { ImageCropperModal } from "@/components/ui/ImageCropperModal";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { getAffectionStage } from "@/components/chat/chat.constants";
 import RelationshipMilestonesEditor from "./RelationshipMilestonesEditor";
 import {
   X,
@@ -23,9 +29,20 @@ import {
   RotateCcw,
   Lightbulb,
   Globe,
-  Lock,
   Image as ImageIcon,
+  Brain,
+  BrainCircuit,
+  BookOpen,
+  Volume2,
+  Eye,
+  Plus,
+  Trash2,
+  UserCheck,
+  Crop,
 } from "lucide-react";
+
+import { WORLD_GENRE_OPTIONS } from "@/lib/constants";
+export { WORLD_GENRE_OPTIONS };
 
 interface CreateCharacterModalProps {
   isOpen: boolean;
@@ -33,40 +50,44 @@ interface CreateCharacterModalProps {
   onSubmit: (req: CreateCharacterRequest) => Promise<void>;
 }
 
+const GENDER_OPTIONS = [
+  { id: "Female", label: "Nữ" },
+  { id: "Male", label: "Nam" },
+  { id: "Other", label: "Khác / Vô tính" },
+];
+
 const CATEGORIES = [
-  { id: "Companion", label: "Bạn đồng hành", icon: Heart, color: "text-rose-400" },
-  { id: "Anime", label: "Anime", icon: Flame, color: "text-amber-400" },
-  { id: "Fantasy", label: "Kỳ ảo", icon: Wand2, color: "text-violet-400" },
-  { id: "RPG", label: "Nhập vai", icon: Swords, color: "text-red-400" },
-  { id: "Assistant", label: "Trợ lý", icon: Bot, color: "text-cyan-400" },
-  { id: "Mentor", label: "Cố vấn", icon: GraduationCap, color: "text-emerald-400" },
+  { id: "Companion", label: "Bạn đồng hành", icon: Heart },
+  { id: "Anime", label: "Anime", icon: Flame },
+  { id: "Fantasy", label: "Kỳ ảo", icon: Wand2 },
+  { id: "RPG", label: "Nhập vai", icon: Swords },
+  { id: "Assistant", label: "Trợ lý", icon: Bot },
+  { id: "Mentor", label: "Cố vấn", icon: GraduationCap },
 ];
 
 const INSPIRATION_IDEAS = [
-  "Cô bạn hàng xóm tinh nghịch ngày nào cũng sang nhà bạn ăn chực và nhờ bạn kèm học.",
-  "Nữ vệ sĩ hoàng gia lạnh lùng thề bảo vệ bạn 24/7 và tuyệt đối tuân lệnh bạn.",
-  "Cô bạn cùng bàn Tsundere ngoài miệng hay chê bai nhưng luôn tự tay chuẩn bị đồ ăn cho bạn.",
-  "Tiểu thư Ma Cà Rồng quý tộc kiêu kỳ bắt bạn làm quản gia riêng để độc chiếm bạn.",
-  "Hồ ly chín đuôi nghịch ngợm biến thành thiếu nữ, thích quấn quýt và nũng nịu đòi bạn xoa đầu.",
-  "Nữ thần tượng nổi tiếng bí mật hẹn hò và chỉ dám tâm sự mọi bí mật với một mình bạn.",
-  "Chị chủ quán cà phê dịu dàng luôn dành góc quen và lắng nghe mọi tâm sự của bạn.",
-  "Nữ kiếm sĩ mạnh mẽ xem bạn là tri kỷ duy nhất và luôn sát cánh bảo vệ bạn.",
-  "Cô bé người máy tương lai coi bạn là người giám hộ duy nhất và học cách yêu thương từ bạn.",
-  "Nữ đồng nghiệp lạnh lùng sau giờ làm lại biến thành cô gái nhút nhát thích dựa dẫm vào bạn.",
-  "Nữ pháp sư quyền năng vụng về làm nổ phòng thí nghiệm và phải ở nhờ nhà bạn.",
-  "Công chúa đế quốc trốn cung, xem bạn là người bạn đồng hành tin cậy nhất.",
-  "Yandere si tình luôn âm thầm dõi theo và bảo bọc bạn trước mọi nguy hiểm.",
-  "Miêu nữ tinh nghịch thích ngủ nướng và bám theo bạn cả ngày không chịu rời."
+  "Nữ kiếm sĩ lang thang mang theo huyết kiếm phong ấn, đơn độc săn lùng quái thú cổ đại.",
+  "Chủ tiệm trà thảo mộc kiêm thầy bói Tarot tại phố cổ, luôn thấu suốt tâm can người đối diện.",
+  "Tiểu thư quý tộc mê cơ khí ma pháp, bí mật chế tạo khinh khí cầu tại xưởng ngầm.",
+  "Thủ lĩnh lính đánh thuê thiện chiến, bề ngoài lạnh lùng nhưng nội tâm mang gánh nặng chuộc tội.",
+  "Nhà nghiên cứu khảo cổ học dị giới, ngày đêm giải mã tàn tích của nền văn minh biến mất.",
+  "Nữ hoàng đế quốc cai trị bằng bàn tay sắt, luôn ẩn giấu nỗi cô đơn trên ngai vàng quyền lực.",
+  "Nghệ sĩ vĩ cầm thiên tài có tính cách lập dị, chỉ diễn tấu dưới những cơn mưa đêm lạnh giá.",
+  "Nữ đặc vụ giải mã công nghệ Cyberpunk, sống ẩn dật giữa khu phố đèn neon rực rỡ."
 ];
+
 
 function getRandomIdeas(count = 3): string[] {
   const shuffled = [...INSPIRATION_IDEAS].sort(() => 0.5 - Math.random());
   return shuffled.slice(0, count);
 }
 
-const DRAFT_STORAGE_KEY = "character_create_form_draft";
+type ActiveTab = "profile" | "world" | "psychology" | "lorebook" | "intimacy";
 
 export function CreateCharacterModal({ isOpen, onClose, onSubmit }: CreateCharacterModalProps) {
+  const [activeTab, setActiveTab] = useState<ActiveTab>("profile");
+
+  // Tab 1: Profile & Visual
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Companion");
@@ -74,25 +95,79 @@ export function CreateCharacterModal({ isOpen, onClose, onSubmit }: CreateCharac
   const [avatarUrl, setAvatarUrl] = useState("");
   const [rawAvatarImage, setRawAvatarImage] = useState<string | null>(null);
   const [isCropperOpen, setIsCropperOpen] = useState(false);
+  const [fullBodyUrl, setFullBodyUrl] = useState("");
+  const [rawFullBodyImage, setRawFullBodyImage] = useState<string | null>(null);
+  const [isFullBodyCropperOpen, setIsFullBodyCropperOpen] = useState(false);
+  const fullBodyFileInputRef = useRef<HTMLInputElement>(null);
   const [personalityPrompt, setPersonalityPrompt] = useState("");
-  const [greeting, setGreeting] = useState("");
   const [tagsInput, setTagsInput] = useState("");
   const [isPublic, setIsPublic] = useState(true);
+
+  // Visual Identity
+  const [gender, setGender] = useState("Female");
+  const [isGenderDropdownOpen, setIsGenderDropdownOpen] = useState(false);
+  const genderDropdownRef = useRef<HTMLDivElement>(null);
+  const [hair, setHair] = useState("");
+  const [eyes, setEyes] = useState("");
+  const [face, setFace] = useState("");
+  const [ageAppearance, setAgeAppearance] = useState("");
+  const [skin, setSkin] = useState("");
+  const [body, setBody] = useState("");
+  const [clothingStyle, setClothingStyle] = useState("");
+  const [accessories, setAccessories] = useState("");
+  const [visualTraits, setVisualTraits] = useState("");
+
+  // Tab 2: World & Universe
+  const [worldGenre, setWorldGenre] = useState<WorldGenre>(WorldGenre.MundaneSliceOfLife);
+  const [worldName, setWorldName] = useState("");
+  const [worldDescription, setWorldDescription] = useState("");
+  const [customPhysicsRules, setCustomPhysicsRules] = useState("");
+
+  // Tab 3: Psychology Blueprint
+  const [desires, setDesires] = useState("");
+  const [fears, setFears] = useState("");
+  const [whenAngry, setWhenAngry] = useState("");
+  const [whenHappy, setWhenHappy] = useState("");
+  const [antiSycophancy, setAntiSycophancy] = useState("");
+  const [boundaries, setBoundaries] = useState("");
+
+  // Tab 4: Lorebook Entries
+  const [lorebookEntries, setLorebookEntries] = useState<CreateLorebookEntryDto[]>([]);
+  const [newLoreTitle, setNewLoreTitle] = useState("");
+  const [newLoreContent, setNewLoreContent] = useState("");
+  const [newLoreKeywords, setNewLoreKeywords] = useState("");
+
+  // Tab 5: Intimacy & Voice
   const [defaultAffectionScore, setDefaultAffectionScore] = useState<number>(0);
-  const [defaultMood, setDefaultMood] = useState<string>("");
+  const [defaultMood, setDefaultMood] = useState<string>("Bình thường");
   const [customMilestones, setCustomMilestones] = useState<RelationshipMilestone[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [voiceGender, setVoiceGender] = useState("Female");
+  const [voiceTone, setVoiceTone] = useState("Dịu dàng, ấm áp");
+
+  // AI Assistant States
   const [aiIdea, setAiIdea] = useState("");
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
   const [suggestedIdeas, setSuggestedIdeas] = useState<string[]>(() => getRandomIdeas(3));
   const [isRefreshingIdeas, setIsRefreshingIdeas] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isLoadedDraft, setIsLoadedDraft] = useState(false);
-  const [isClearDraftDialogOpen, setIsClearDraftDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+        setIsCategoryOpen(false);
+      }
+      if (genderDropdownRef.current && !genderDropdownRef.current.contains(event.target as Node)) {
+        setIsGenderDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleRefreshSuggestions = async () => {
     if (isRefreshingIdeas) return;
@@ -111,31 +186,61 @@ export function CreateCharacterModal({ isOpen, onClose, onSubmit }: CreateCharac
     }
   };
 
-  const handleGenerateAvatarAi = async (overrideInfo?: {
-    name?: string;
-    title?: string;
-    category?: string;
-    personalityPrompt?: string;
-    idea?: string;
-  }) => {
+  const canGenerateAvatar = Boolean(name.trim() && title.trim() && personalityPrompt.trim());
+
+  const handleGenerateAvatarAi = async (
+    customPrompt?: string,
+    customName?: string,
+    customTitle?: string,
+    customVisualIdentity?: CharacterVisualIdentity,
+    customWorldGenre?: WorldGenre | number
+  ) => {
     if (isGeneratingAvatar) return;
+    const targetName = (customName || name).trim();
+    const targetTitle = (customTitle || title).trim();
+    const targetBio = (customPrompt || personalityPrompt).trim();
+    const targetVisualIdentity: CharacterVisualIdentity = customVisualIdentity || {
+      gender,
+      hair,
+      eyes,
+      face,
+      ageAppearance,
+      skin,
+      body,
+      clothingStyle,
+      accessories,
+      visualTraits,
+    };
+    const targetWorldGenre = customWorldGenre !== undefined ? customWorldGenre : worldGenre;
+
+    if (!targetName || !targetTitle || !targetBio) {
+      setError("Vui lòng điền đầy đủ Tên Nhân Vật, Danh Hiệu và Tiểu Sử để AI có đủ dữ kiện vẽ ảnh chân dung chính xác!");
+      return;
+    }
+
     try {
       setIsGeneratingAvatar(true);
       setError(null);
       const res = await generateCharacterAvatar({
-        name: overrideInfo?.name || name.trim() || "Nhân vật Anime",
-        title: overrideInfo?.title || title.trim() || "Hiệp sĩ",
-        category: overrideInfo?.category || category || "Anime",
-        personalityPrompt: overrideInfo?.personalityPrompt || personalityPrompt.trim() || "",
-        idea: overrideInfo?.idea || aiIdea.trim() || "",
+        name: targetName,
+        title: targetTitle,
+        category: category || "Companion",
+        personalityPrompt: targetBio,
+        idea: aiIdea.trim() || "",
+        worldGenre: targetWorldGenre,
+        visualIdentity: targetVisualIdentity,
       });
       if (res && res.avatarUrl) {
         setAvatarUrl(res.avatarUrl);
         setRawAvatarImage(res.avatarUrl);
       }
+      if (res && res.fullBodyUrl) {
+        setFullBodyUrl(res.fullBodyUrl);
+        setRawFullBodyImage(res.fullBodyUrl);
+      }
     } catch (err: any) {
       console.warn("AI avatar generation failed:", err);
-      setError(err.message || "Không thể vẽ ảnh đại diện bằng AI lúc này.");
+      setError(err.message || "Không thể vẽ ảnh bằng AI lúc này.");
     } finally {
       setIsGeneratingAvatar(false);
     }
@@ -144,800 +249,1152 @@ export function CreateCharacterModal({ isOpen, onClose, onSubmit }: CreateCharac
   const handleGenerateWithAi = async (customIdea?: string) => {
     const text = (customIdea || aiIdea).trim();
     if (!text) {
-      setError("Vui lòng nhập ý tưởng nhân vật để AI tự sinh bối cảnh!");
+      setError("Vui lòng nhập ý tưởng nhân vật để AI tự sinh thông tin!");
       return;
     }
     try {
       setIsGeneratingAi(true);
       setError(null);
       const generated = await generateCharacterWithAi(text, category);
-      if (generated.name) setName(generated.name);
-      if (generated.title) setTitle(generated.title);
-      if (generated.category) setCategory(generated.category);
-      if (generated.greeting) setGreeting(generated.greeting);
-      if (generated.personalityPrompt) setPersonalityPrompt(generated.personalityPrompt);
-      if (generated.tags && generated.tags.length > 0) setTagsInput(generated.tags.join(", "));
-      if (typeof generated.defaultAffectionScore === "number") {
-        setDefaultAffectionScore(generated.defaultAffectionScore);
-      }
-      if (generated.defaultMood) {
-        setDefaultMood(generated.defaultMood);
-      }
-      if (generated.customMilestones && generated.customMilestones.length > 0) {
-        setCustomMilestones(generated.customMilestones);
-      }
 
-      // Tự động phác họa luôn bức ảnh đại diện Anime tuyệt đẹp tương ứng!
-      handleGenerateAvatarAi({
-        name: generated.name,
-        title: generated.title,
-        category: generated.category || category,
-        personalityPrompt: generated.personalityPrompt,
-        idea: text,
-      });
+      if (generated) {
+        setName(generated.name || "");
+        setTitle(generated.title || "");
+        if (generated.category) setCategory(generated.category);
+        setPersonalityPrompt(generated.personalityPrompt || "");
+        if (generated.tags && generated.tags.length > 0) {
+          setTagsInput(generated.tags.join(", "));
+        }
+        if (generated.defaultAffectionScore !== undefined) {
+          setDefaultAffectionScore(generated.defaultAffectionScore);
+        }
+        if (generated.worldGenre !== undefined && generated.worldGenre !== null) {
+          if (typeof generated.worldGenre === "number") {
+            setWorldGenre(generated.worldGenre as WorldGenre);
+          } else if (typeof generated.worldGenre === "string") {
+            const parsedNum = Number(generated.worldGenre);
+            if (!isNaN(parsedNum)) {
+              setWorldGenre(parsedNum as WorldGenre);
+            } else {
+              const gStr = (generated.worldGenre as string).toLowerCase();
+              if (gStr.includes("fantasy") || gStr.includes("tiên") || gStr.includes("kiếm")) setWorldGenre(WorldGenre.HighFantasy);
+              else if (gStr.includes("urban") || gStr.includes("supernatural") || gStr.includes("dị năng") || gStr.includes("siêu")) setWorldGenre(WorldGenre.UrbanSupernatural);
+              else if (gStr.includes("cyber") || gStr.includes("sci") || gStr.includes("viễn tưởng") || gStr.includes("tương lai")) setWorldGenre(WorldGenre.CyberpunkSciFi);
+              else if (gStr.includes("history") || gStr.includes("historical") || gStr.includes("cổ trang") || gStr.includes("lịch sử")) setWorldGenre(WorldGenre.Historical);
+              else if (gStr.includes("custom") || gStr.includes("tự do")) setWorldGenre(WorldGenre.Custom);
+              else setWorldGenre(WorldGenre.MundaneSliceOfLife);
+            }
+          }
+        }
+        if (generated.worldName) setWorldName(generated.worldName);
+        if (generated.worldDescription) setWorldDescription(generated.worldDescription);
+        if (generated.customPhysicsRules) setCustomPhysicsRules(generated.customPhysicsRules);
+
+        // Blueprint
+        if (generated.blueprint) {
+          if (generated.blueprint.psychology?.desires) setDesires(generated.blueprint.psychology.desires);
+          if (generated.blueprint.psychology?.fears) setFears(generated.blueprint.psychology.fears);
+          if (generated.blueprint.behavior?.whenAngry) setWhenAngry(generated.blueprint.behavior.whenAngry);
+          if (generated.blueprint.behavior?.whenHappy) setWhenHappy(generated.blueprint.behavior.whenHappy);
+          if (generated.blueprint.rules?.antiSycophancy) setAntiSycophancy(generated.blueprint.rules.antiSycophancy);
+          if (generated.blueprint.rules?.boundaries) setBoundaries(generated.blueprint.rules.boundaries.join("; "));
+        }
+
+        // Visual Identity
+        if (generated.visualIdentity) {
+          if (generated.visualIdentity.gender) {
+            setGender(generated.visualIdentity.gender);
+            if (generated.visualIdentity.gender === "Male") setVoiceGender("Male");
+            else if (generated.visualIdentity.gender === "Female") setVoiceGender("Female");
+          }
+          if (generated.visualIdentity.hair) setHair(generated.visualIdentity.hair);
+          if (generated.visualIdentity.eyes) setEyes(generated.visualIdentity.eyes);
+          if (generated.visualIdentity.face) setFace(generated.visualIdentity.face);
+          if (generated.visualIdentity.ageAppearance) setAgeAppearance(generated.visualIdentity.ageAppearance);
+          if (generated.visualIdentity.skin) setSkin(generated.visualIdentity.skin);
+          if (generated.visualIdentity.body) setBody(generated.visualIdentity.body);
+          if (generated.visualIdentity.clothingStyle) setClothingStyle(generated.visualIdentity.clothingStyle);
+          if (generated.visualIdentity.accessories) setAccessories(generated.visualIdentity.accessories);
+          if (generated.visualIdentity.visualTraits) setVisualTraits(generated.visualIdentity.visualTraits);
+          if (generated.visualIdentity.fullBodyUrl) {
+            setFullBodyUrl(generated.visualIdentity.fullBodyUrl);
+          } else if (generated.visualIdentity.canonicalReferenceUrl) {
+            setFullBodyUrl(generated.visualIdentity.canonicalReferenceUrl);
+          }
+        }
+
+        // Voice Profile
+        if (generated.voiceProfile) {
+          if (generated.voiceProfile.gender) {
+            setVoiceGender(generated.voiceProfile.gender === "Male" ? "Male" : "Female");
+          }
+          if (generated.voiceProfile.tone) {
+            setVoiceTone(generated.voiceProfile.tone);
+          }
+        }
+
+        // Lorebook Entries
+        if (generated.initialLorebookEntries && generated.initialLorebookEntries.length > 0) {
+          setLorebookEntries(generated.initialLorebookEntries);
+        }
+
+        // Custom Milestones
+        if (generated.customMilestones && generated.customMilestones.length > 0) {
+          setCustomMilestones(generated.customMilestones);
+        }
+
+        // Auto trigger AI avatar generation
+        handleGenerateAvatarAi(
+          generated.personalityPrompt,
+          generated.name,
+          generated.title,
+          generated.visualIdentity || undefined,
+          generated.worldGenre !== undefined ? Number(generated.worldGenre) : undefined
+        );
+      }
     } catch (err: any) {
-      console.error("AI Generation error:", err);
-      setError(err.message || "Không thể tự động sinh nhân vật bằng AI lúc này.");
+      console.error("AI Generation failed:", err);
+      setError(err.message || "Tạo bằng AI thất bại. Vui lòng thử lại!");
     } finally {
       setIsGeneratingAi(false);
     }
   };
 
-  // Load draft from localStorage on client mount
-  useEffect(() => {
-    try {
-      const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
-      if (savedDraft) {
-        const data = JSON.parse(savedDraft);
-        if (data.name) setName(data.name);
-        if (data.title) setTitle(data.title);
-        if (data.category) setCategory(data.category);
-        if (data.avatarUrl) setAvatarUrl(data.avatarUrl);
-        if (data.rawAvatarImage) setRawAvatarImage(data.rawAvatarImage);
-        if (data.greeting) setGreeting(data.greeting);
-        if (data.personalityPrompt) setPersonalityPrompt(data.personalityPrompt);
-        if (data.tagsInput) setTagsInput(data.tagsInput);
-        if (typeof data.isPublic === "boolean") setIsPublic(data.isPublic);
-        if (typeof data.defaultAffectionScore === "number") setDefaultAffectionScore(data.defaultAffectionScore);
-        if (data.defaultMood) setDefaultMood(data.defaultMood);
-      }
-    } catch (err) {
-      console.warn("Could not restore character draft", err);
-    } finally {
-      setIsLoadedDraft(true);
-    }
-  }, []);
-
-  // Auto-save form draft to localStorage whenever fields change
-  useEffect(() => {
-    if (!isLoadedDraft) return;
-
-    const hasContent = Boolean(
-      name || title || greeting || personalityPrompt || tagsInput || avatarUrl
-    );
-
-    try {
-      if (hasContent) {
-        const draft = {
-          name,
-          title,
-          category,
-          avatarUrl,
-          rawAvatarImage,
-          greeting,
-          personalityPrompt,
-          tagsInput,
-          isPublic,
-          defaultAffectionScore,
-          defaultMood,
-        };
-        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
-      } else {
-        localStorage.removeItem(DRAFT_STORAGE_KEY);
-      }
-    } catch (err) {
-      console.warn("Could not save character draft", err);
-    }
-  }, [
-    name,
-    title,
-    category,
-    avatarUrl,
-    rawAvatarImage,
-    greeting,
-    personalityPrompt,
-    tagsInput,
-    isPublic,
-    isLoadedDraft,
-  ]);
-
-  // Handle outside click for category dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
-        setIsCategoryOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  if (!isOpen) return null;
-
-  const handleConfirmClearDraft = () => {
-    setName("");
-    setTitle("");
-    setCategory("Companion");
-    setAvatarUrl("");
-    setRawAvatarImage(null);
-    setGreeting("");
-    setPersonalityPrompt("");
-    setTagsInput("");
-    setIsPublic(true);
-    setDefaultAffectionScore(0);
-    setDefaultMood("");
-    setError(null);
-    try {
-      localStorage.removeItem(DRAFT_STORAGE_KEY);
-    } catch (err) {
-      console.warn(err);
-    }
-    setIsClearDraftDialogOpen(false);
+  const handleAddLorebook = () => {
+    if (!newLoreTitle.trim() || !newLoreContent.trim()) return;
+    const keywords = newLoreKeywords.split(",").map((k) => k.trim()).filter(Boolean);
+    setLorebookEntries((prev) => [
+      ...prev,
+      {
+        title: newLoreTitle.trim(),
+        content: newLoreContent.trim(),
+        keywords: keywords.length > 0 ? keywords : [newLoreTitle.trim()],
+        category: 1,
+        isConstant: false,
+        priority: 100,
+      },
+    ]);
+    setNewLoreTitle("");
+    setNewLoreContent("");
+    setNewLoreKeywords("");
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      setError("Vui lòng chọn tệp hình ảnh hợp lệ (PNG, JPG, WEBP, GIF)!");
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      setError("Dung lượng ảnh tối đa là 10MB!");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const src = reader.result as string;
-      setRawAvatarImage(src);
-      setIsCropperOpen(true);
-      setError(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleCropSave = (croppedDataUrl: string) => {
-    setAvatarUrl(croppedDataUrl);
-    setError(null);
+  const handleRemoveLorebook = (index: number) => {
+    setLorebookEntries((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !title.trim() || !personalityPrompt.trim() || !greeting.trim() || !category) {
-      setError("Vui lòng điền đầy đủ các thông tin bắt buộc!");
+    if (!name.trim()) {
+      setError("Vui lòng nhập tên nhân vật!");
+      setActiveTab("profile");
       return;
     }
-
-    const tags = tagsInput
-      .split(",")
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
-
-    const avatar = avatarUrl.trim();
+    if (!personalityPrompt.trim()) {
+      setError("Vui lòng nhập tiểu sử và tính cách nhân vật!");
+      setActiveTab("profile");
+      return;
+    }
 
     try {
       setIsSubmitting(true);
       setError(null);
-      await onSubmit({
+
+      const parsedTags = tagsInput
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
+
+      const blueprint: CharacterBlueprint = {
+        psychology: {
+          desires: desires.trim() || undefined,
+          fears: fears.trim() || undefined,
+        },
+        behavior: {
+          whenAngry: whenAngry.trim() || undefined,
+          whenHappy: whenHappy.trim() || undefined,
+        },
+        rules: {
+          antiSycophancy: antiSycophancy.trim() || undefined,
+          boundaries: boundaries.trim() ? boundaries.split(";").map((b) => b.trim()).filter(Boolean) : undefined,
+        },
+      };
+
+      const visualIdentity: CharacterVisualIdentity = {
+        gender: gender || undefined,
+        hair: hair.trim() || undefined,
+        eyes: eyes.trim() || undefined,
+        face: face.trim() || undefined,
+        ageAppearance: ageAppearance.trim() || undefined,
+        skin: skin.trim() || undefined,
+        body: body.trim() || undefined,
+        clothingStyle: clothingStyle.trim() || undefined,
+        accessories: accessories.trim() || undefined,
+        visualTraits: visualTraits.trim() || undefined,
+        fullBodyUrl: fullBodyUrl.trim() || undefined,
+        canonicalReferenceUrl: fullBodyUrl.trim() || undefined,
+      };
+
+      const voiceProfile: CharacterVoiceProfile = {
+        voiceId: "vi-VN-HoaiMyNeural",
+        gender: voiceGender,
+        tone: voiceTone,
+      };
+
+      const req: CreateCharacterRequest = {
         name: name.trim(),
         title: title.trim(),
         category,
-        avatarUrl: avatar,
+        avatarUrl: avatarUrl.trim() || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400",
         personalityPrompt: personalityPrompt.trim(),
-        greeting: greeting.trim(),
-        tags,
+        greeting: "", // No forced greeting in 2-way social stranger network
+        tags: parsedTags,
         isPublic,
         defaultAffectionScore,
-        defaultMood: defaultMood.trim() || undefined,
+        defaultMood: defaultMood.trim() || "Bình thường",
+        worldGenre,
+        worldName: worldName.trim() || undefined,
+        worldDescription: worldDescription.trim() || undefined,
+        customPhysicsRules: customPhysicsRules.trim() || undefined,
+        blueprint,
+        visualIdentity,
+        voiceProfile,
+        initialLorebookEntries: lorebookEntries.length > 0 ? lorebookEntries : undefined,
         customMilestones: customMilestones.length > 0 ? customMilestones : undefined,
-      });
+      };
 
-      // Clear draft on success
-      try {
-        localStorage.removeItem(DRAFT_STORAGE_KEY);
-      } catch (err) {
-        console.warn(err);
-      }
-      setName("");
-      setTitle("");
-      setCategory("Companion");
-      setDefaultAffectionScore(0);
-      setDefaultMood("");
-      setAvatarUrl("");
-      setRawAvatarImage(null);
-      setGreeting("");
-      setPersonalityPrompt("");
-      setTagsInput("");
-      setIsPublic(true);
+      await onSubmit(req);
       onClose();
     } catch (err: any) {
-      setError(err.message || "Không thể tạo nhân vật. Vui lòng thử lại!");
+      console.error("Failed to create character:", err);
+      setError(err.message || "Tạo nhân vật không thành công. Vui lòng thử lại!");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const selectedCategoryObj = CATEGORIES.find((c) => c.id === category) || CATEGORIES[0];
-  const SelectedIcon = selectedCategoryObj.icon;
-  const hasDraftContent = Boolean(name || title || greeting || personalityPrompt || tagsInput || avatarUrl);
+  if (!isOpen) return null;
+
+  const currentCategory = CATEGORIES.find((c) => c.id === category) || CATEGORIES[0];
+  const CategoryIcon = currentCategory.icon;
+  const selectedGender = GENDER_OPTIONS.find((g) => g.id === gender) || GENDER_OPTIONS[0];
 
   return (
-    <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200">
-        <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border border-[#31333a] bg-[#212227] shadow-2xl overflow-hidden">
-          {/* Fixed Header */}
-          <div className="flex items-center justify-between border-b border-[#2c2e35] px-6 py-5 sm:px-8 sm:py-6 shrink-0 bg-[#212227]">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#2b2c34] text-zinc-200 border border-[#3b3d46]">
-                <Sparkles className="h-4 w-4 text-amber-400" />
-              </div>
-              <div>
-                <h2 className="text-lg font-extrabold text-zinc-100">Tạo Nhân Vật AI Mới</h2>
-                <p className="text-xs text-zinc-400 mt-0.5">Thiết lập tính cách, danh hiệu và câu chào nhập vai</p>
-              </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-sm overflow-y-auto">
+      <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-[#1c1d22] border border-[#2e3038] rounded-3xl shadow-2xl overflow-hidden text-zinc-100 animate-in fade-in zoom-in-95 duration-200">
+        
+        {/* Header Bar */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2c34] bg-[#17181c] shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-[#26272e] border border-[#373943] flex items-center justify-center">
+              <Sparkles className="h-4 w-4 text-zinc-200" />
             </div>
-
-            <div className="flex items-center gap-2">
-              {hasDraftContent && (
-                <button
-                  type="button"
-                  onClick={() => setIsClearDraftDialogOpen(true)}
-                  title="Xóa nội dung đang nhập dở"
-                  className="flex items-center gap-1.5 rounded-xl border border-[#3b3d46] bg-[#2b2c34] px-3 py-1.5 text-xs font-semibold text-zinc-400 hover:bg-rose-950/30 hover:border-rose-500/40 hover:text-rose-300 transition-colors cursor-pointer"
-                >
-                  <RotateCcw className="h-3 w-3" />
-                  <span className="hidden sm:inline">Làm mới form</span>
-                </button>
-              )}
-              <button
-                onClick={onClose}
-                className="rounded-xl p-2 text-zinc-400 hover:bg-[#2b2c34] hover:text-zinc-100 transition-colors cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-zinc-100 flex items-center gap-2">
+                Tạo Nhân Vật Mới
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#282a33] text-zinc-300 border border-[#3b3d48]">
+                  7 Đặc Tính Sống Động
+                </span>
+              </h2>
+              <p className="text-xs text-zinc-400">
+                Đầy đủ hồ sơ tâm lý, 8 mốc quan hệ động, bối cảnh thế giới & visual
+              </p>
             </div>
           </div>
 
-          {/* Scrollable Form Body */}
-          <form id="create-character-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-6 sm:px-8 sm:py-7 space-y-4.5 custom-scrollbar">
-            {error && (
-              <div className="rounded-2xl bg-rose-500/10 border border-rose-500/30 p-3.5 text-xs text-rose-400">
-                {error}
-              </div>
-            )}
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-[#25262e] transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
 
-            {/* AI Generator Banner */}
-            <div className="rounded-3xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-purple-500/5 to-[#1a1b22] p-4 sm:p-5 shadow-lg">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-amber-400/20 text-amber-300">
-                    <Wand2 className="h-4 w-4" />
-                  </div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
-                    ✨ AI Tự Động Sinh Toàn Bộ Bối Cảnh
-                  </span>
-                </div>
-                <span className="text-[10px] text-zinc-400 hidden sm:inline">Chỉ cần 1 câu ý tưởng</span>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-2 mt-3">
-                <input
-                  type="text"
-                  value={aiIdea}
-                  onChange={(e) => setAiIdea(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleGenerateWithAi();
-                    }
-                  }}
-                  placeholder="Nhập ý tưởng (VD: Nữ sát thủ quý tộc nhưng sợ bóng tối và thích ăn bánh ngọt...)"
-                  className="flex-1 rounded-2xl border border-[#3b3d48] bg-[#17181d] px-4 py-2.5 text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 focus:border-amber-400/60 focus:bg-[#1c1e24] focus:outline-none transition-colors"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleGenerateWithAi()}
-                  disabled={isGeneratingAi || !aiIdea.trim()}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-300 px-5 py-2.5 text-xs font-bold text-zinc-950 shadow-md hover:from-amber-300 hover:to-amber-200 disabled:opacity-40 transition-all active:scale-95 cursor-pointer shrink-0"
-                >
-                  {isGeneratingAi ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin text-zinc-950" />
-                      <span>Đang suy luận...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4 text-zinc-950" />
-                      <span>Tự Động Sinh</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Quick Idea Chips */}
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-amber-500/15">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[10px] font-semibold text-zinc-400 flex items-center gap-1 mr-1">
-                    <Lightbulb className="h-3 w-3 text-amber-400" />
-                    Gợi ý nhanh:
-                  </span>
-                  {suggestedIdeas.map((idea, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        setAiIdea(idea);
-                        handleGenerateWithAi(idea);
-                      }}
-                      disabled={isGeneratingAi}
-                      className="rounded-xl border border-[#343743] bg-[#1d1f27] px-2.5 py-1 text-[11px] text-zinc-300 hover:border-amber-400/50 hover:bg-amber-950/20 hover:text-amber-200 transition-all cursor-pointer disabled:opacity-40"
-                    >
-                      {idea}
-                    </button>
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleRefreshSuggestions}
-                  disabled={isRefreshingIdeas}
-                  className="flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-[10px] font-medium text-amber-400/90 hover:text-amber-300 hover:bg-amber-950/30 transition-all cursor-pointer disabled:opacity-50"
-                  title="AI sinh 4 gợi ý ngẫu nhiên hoàn toàn mới"
-                >
-                  <RotateCcw className={`h-2.5 w-2.5 ${isRefreshingIdeas ? "animate-spin text-amber-300" : ""}`} />
-                  <span>{isRefreshingIdeas ? "Đang nghĩ..." : "Đổi gợi ý"}</span>
-                </button>
-              </div>
+        {/* AI Quick Architect Bar */}
+        <div className="p-4 sm:p-5 bg-[#17181c]/90 border-b border-[#282a32] shrink-0">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-zinc-200">
+              <Sparkles className="h-3.5 w-3.5 text-zinc-300" />
+              <span>Kiến Trúc Sư AI (Khởi tạo nhanh)</span>
             </div>
+          </div>
 
-            {/* Row 1: Name & Title */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Tên nhân vật *</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="VD: Lina, Hiệp Sĩ Bóng Đêm, Elena..."
-                  className="w-full rounded-2xl border border-[#31333a] bg-[#191a1e] px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-[#525562] focus:bg-[#1e2025] focus:outline-none transition-colors"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Danh hiệu / Vai trò *</label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="VD: Bạn đồng hành dịu dàng, Phù thủy cổ đại..."
-                  className="w-full rounded-2xl border border-[#31333a] bg-[#191a1e] px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-[#525562] focus:bg-[#1e2025] focus:outline-none transition-colors"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Row 2: Category Dropdown */}
-            <div className="relative" ref={categoryDropdownRef}>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Thể loại *</label>
-              <button
-                type="button"
-                onClick={() => setIsCategoryOpen(!isCategoryOpen)}
-                className="w-full flex items-center justify-between rounded-2xl border border-[#31333a] bg-[#191a1e] px-4 py-2.5 text-sm text-zinc-100 hover:border-[#464954] hover:bg-[#1e2025] transition-all cursor-pointer select-none"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <SelectedIcon className={`h-4 w-4 shrink-0 ${selectedCategoryObj.color}`} />
-                  <span className="font-semibold">{selectedCategoryObj.label}</span>
-                </div>
-                <ChevronDown className={`h-4 w-4 text-zinc-400 transition-transform duration-200 shrink-0 ${isCategoryOpen ? "rotate-180" : ""}`} />
-              </button>
-
-              {/* Dropdown Menu */}
-              {isCategoryOpen && (
-                <div className="absolute left-0 right-0 mt-1.5 overflow-hidden rounded-2xl border border-[#31333a] bg-[#212227] p-1.5 shadow-2xl backdrop-blur-xl z-20 animate-in fade-in slide-in-from-top-2">
-                  <div className="space-y-0.5 max-h-48 overflow-y-auto custom-scrollbar">
-                    {CATEGORIES.map((cat) => {
-                      const active = category === cat.id;
-                      const Icon = cat.icon;
-                      return (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          onClick={() => {
-                            setCategory(cat.id);
-                            setIsCategoryOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold transition-colors cursor-pointer ${
-                            active
-                              ? "bg-[#2f313a] text-zinc-100 border border-[#3f424c]"
-                              : "text-zinc-300 hover:bg-[#282930] hover:text-white"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <Icon className={`h-4 w-4 ${cat.color}`} />
-                            <span>{cat.label}</span>
-                          </div>
-                          {active && <Check className="h-3.5 w-3.5 text-zinc-100 shrink-0" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Row 3: Centered Avatar Upload / Update Box */}
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                Ảnh đại diện nhân vật (Tùy chọn)
-              </label>
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            <div className="relative flex-1">
               <input
-                type="file"
-                ref={fileInputRef}
-                accept="image/*"
-                onChange={handleFileUpload}
-                className="hidden"
+                type="text"
+                value={aiIdea}
+                onChange={(e) => setAiIdea(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleGenerateWithAi()}
+                placeholder="Nhập ý tưởng (VD: Nữ sát thủ lạnh lùng nhưng rất thích bánh ngọt và mèo...)"
+                className="w-full rounded-xl border border-[#31333c] bg-[#121316] px-3.5 py-2.5 text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 focus:border-zinc-300 focus:outline-none"
               />
+            </div>
 
-              <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-[#31333a] bg-[#191a1e]/90 p-6 sm:p-7 text-center transition-all">
-                {avatarUrl ? (
-                  <>
-                    <div className="relative group flex items-center justify-center">
-                      <img
-                        src={avatarUrl}
-                        alt="Avatar Preview"
-                        className="h-20 w-20 sm:h-24 sm:w-24 rounded-full object-cover border-2 border-[#3b3d46] shadow-2xl ring-4 ring-black/30 bg-[#212227]"
+            <button
+              type="button"
+              onClick={() => handleGenerateWithAi()}
+              disabled={isGeneratingAi || !aiIdea.trim()}
+              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-bold text-xs sm:text-sm shadow-md active:scale-95 disabled:opacity-40 transition-all cursor-pointer whitespace-nowrap"
+            >
+              {isGeneratingAi ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin text-zinc-950" />
+                  <span>AI Đang Thiết Kế...</span>
+                </>
+              ) : (
+                <>
+                  <Wand2 className="h-4 w-4" />
+                  <span>AI Tự Động Sinh 7 Đặc Tính</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Quick inspiration pills */}
+          <div className="flex items-center gap-2 mt-2.5 overflow-x-auto pb-1 text-[11px] text-zinc-400 scrollbar-none">
+            <span className="flex items-center gap-1 text-zinc-300 font-semibold shrink-0">
+              <Lightbulb className="h-3 w-3 text-zinc-400" /> Gợi ý:
+            </span>
+            {suggestedIdeas.map((idea, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  setAiIdea(idea);
+                  handleGenerateWithAi(idea);
+                }}
+                className="shrink-0 max-w-[280px] truncate px-2.5 py-1 rounded-lg bg-[#212227] hover:bg-[#2c2d35] border border-[#31333a] text-zinc-300 hover:text-white transition-colors"
+              >
+                {idea}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={handleRefreshSuggestions}
+              disabled={isRefreshingIdeas}
+              className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              <RotateCcw className={`h-3 w-3 ${isRefreshingIdeas ? "animate-spin" : ""}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Navigation Bar */}
+        <div className="flex items-center gap-1 px-4 sm:px-6 pt-2 border-b border-[#282a32] bg-[#141518] overflow-x-auto scrollbar-none shrink-0">
+          <button
+            type="button"
+            onClick={() => setActiveTab("profile")}
+            className={`flex items-center gap-2 px-3.5 py-2.5 border-b-2 font-semibold text-xs sm:text-sm whitespace-nowrap transition-colors cursor-pointer ${
+              activeTab === "profile"
+                ? "border-zinc-100 text-zinc-100 bg-white/5 rounded-t-xl"
+                : "border-transparent text-zinc-400 hover:text-zinc-200"
+            }`}
+          >
+            <UserCheck className="h-4 w-4" />
+            1. Hồ Sơ & Ngoại Hình
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("world")}
+            className={`flex items-center gap-2 px-3.5 py-2.5 border-b-2 font-semibold text-xs sm:text-sm whitespace-nowrap transition-colors cursor-pointer ${
+              activeTab === "world"
+                ? "border-zinc-100 text-zinc-100 bg-white/5 rounded-t-xl"
+                : "border-transparent text-zinc-400 hover:text-zinc-200"
+            }`}
+          >
+            <Globe className="h-4 w-4" />
+            2. Vũ Trụ & Thế Giới
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("psychology")}
+            className={`flex items-center gap-2 px-3.5 py-2.5 border-b-2 font-semibold text-xs sm:text-sm whitespace-nowrap transition-colors cursor-pointer ${
+              activeTab === "psychology"
+                ? "border-zinc-100 text-zinc-100 bg-white/5 rounded-t-xl"
+                : "border-transparent text-zinc-400 hover:text-zinc-200"
+            }`}
+          >
+            <BrainCircuit className="h-4 w-4" />
+            3. Tâm Lý & Cảm Xúc
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("lorebook")}
+            className={`flex items-center gap-2 px-3.5 py-2.5 border-b-2 font-semibold text-xs sm:text-sm whitespace-nowrap transition-colors cursor-pointer ${
+              activeTab === "lorebook"
+                ? "border-zinc-100 text-zinc-100 bg-white/5 rounded-t-xl"
+                : "border-transparent text-zinc-400 hover:text-zinc-200"
+            }`}
+          >
+            <BookOpen className="h-4 w-4" />
+            4. Bách Khoa Thư (Lore)
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("intimacy")}
+            className={`flex items-center gap-2 px-3.5 py-2.5 border-b-2 font-semibold text-xs sm:text-sm whitespace-nowrap transition-colors cursor-pointer ${
+              activeTab === "intimacy"
+                ? "border-zinc-100 text-zinc-100 bg-white/5 rounded-t-xl"
+                : "border-transparent text-zinc-400 hover:text-zinc-200"
+            }`}
+          >
+            <Volume2 className="h-4 w-4" />
+            5. Thân Mật & Giọng Nói
+          </button>
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
+          {error && (
+            <div className="p-3.5 rounded-xl bg-red-950/30 border border-red-500/30 text-xs sm:text-sm text-red-300 flex items-center justify-between">
+              <span>{error}</span>
+              <button type="button" onClick={() => setError(null)} className="text-red-400 hover:text-red-200">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          {/* TAB 1: PROFILE & VISUAL */}
+          {activeTab === "profile" && (
+            <div className="space-y-5 animate-in fade-in duration-150">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+                
+                {/* Dual Image Upload: Avatar + Full-Body */}
+                <div className="md:col-span-5 flex flex-col p-5 rounded-2xl bg-[#17181c] border border-[#2b2d35]">
+                  <div className="grid grid-cols-2 gap-4 items-center">
+                    {/* Box 1: Avatar */}
+                    <div className="flex flex-col items-center">
+                      <label className="text-xs font-bold text-zinc-300 mb-2">Ảnh Đại Diện</label>
+                      <div
+                        onClick={() => {
+                          if (avatarUrl && !isGeneratingAvatar) {
+                            setRawAvatarImage(avatarUrl);
+                            setIsCropperOpen(true);
+                          } else {
+                            fileInputRef.current?.click();
+                          }
+                        }}
+                        className="relative w-24 h-24 sm:w-28 sm:h-28 aspect-square rounded-full overflow-hidden bg-[#212227] border-2 border-[#383a44] hover:border-zinc-300 flex items-center justify-center cursor-pointer transition-all group shadow-inner ring-2 ring-black/40"
+                      >
+                        {avatarUrl ? (
+                          <>
+                            <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-[10px] font-semibold">
+                              Cắt lại
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-center p-2 text-zinc-500">
+                            <Upload className="h-6 w-6 mx-auto mb-0.5 text-zinc-400 group-hover:scale-110 transition-transform" />
+                            <span className="text-[10px]">Tải lên</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1.5 mt-3">
+                        {avatarUrl && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRawAvatarImage(avatarUrl);
+                              setIsCropperOpen(true);
+                            }}
+                            className="p-1.5 rounded-lg bg-[#26272e] hover:bg-[#30323c] border border-[#383a45] text-zinc-300 hover:text-white transition-all cursor-pointer"
+                            title="Căn chỉnh / Cắt lại ảnh đại diện"
+                          >
+                            <Crop className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="p-1.5 rounded-lg bg-[#26272e] hover:bg-[#30323c] border border-[#383a45] text-zinc-300 hover:text-white transition-all cursor-pointer"
+                          title="Tải ảnh đại diện từ máy"
+                        >
+                          <Upload className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Box 2: Full-Body */}
+                    <div className="flex flex-col items-center">
+                      <label className="text-xs font-bold text-zinc-300 mb-2">Ảnh Toàn Thân</label>
+                      <div
+                        onClick={() => {
+                          if (fullBodyUrl && !isGeneratingAvatar) {
+                            setRawFullBodyImage(fullBodyUrl);
+                            setIsFullBodyCropperOpen(true);
+                          } else {
+                            fullBodyFileInputRef.current?.click();
+                          }
+                        }}
+                        className="relative w-full max-w-[140px] sm:max-w-[160px] aspect-[2/3] rounded-2xl overflow-hidden bg-[#212227] border-2 border-[#383a44] hover:border-zinc-300 flex items-center justify-center cursor-pointer transition-all group shadow-inner ring-2 ring-black/40"
+                      >
+                        {fullBodyUrl ? (
+                          <>
+                            <img src={fullBodyUrl} alt="Toàn thân" className="w-full h-full object-cover object-top" />
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-semibold">
+                              Cắt lại
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-center p-3 text-zinc-500">
+                            <ImageIcon className="h-7 w-7 mx-auto mb-1 text-zinc-400 group-hover:scale-110 transition-transform" />
+                            <span className="text-xs font-medium block">Dáng Toàn Thân</span>
+                            <span className="text-[9px] text-zinc-500">Tỉ lệ đứng 2:3</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1.5 mt-3">
+                        {fullBodyUrl && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRawFullBodyImage(fullBodyUrl);
+                              setIsFullBodyCropperOpen(true);
+                            }}
+                            className="p-1.5 rounded-lg bg-[#26272e] hover:bg-[#30323c] border border-[#383a45] text-zinc-300 hover:text-white transition-all cursor-pointer"
+                            title="Căn chỉnh / Cắt lại ảnh toàn thân"
+                          >
+                            <Crop className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => fullBodyFileInputRef.current?.click()}
+                          className="p-1.5 rounded-lg bg-[#26272e] hover:bg-[#30323c] border border-[#383a45] text-zinc-300 hover:text-white transition-all cursor-pointer"
+                          title="Tải ảnh toàn thân từ máy"
+                        >
+                          <Upload className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Hidden inputs */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          setRawAvatarImage(reader.result as string);
+                          setIsCropperOpen(true);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                  <input
+                    ref={fullBodyFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          setRawFullBodyImage(reader.result as string);
+                          setIsFullBodyCropperOpen(true);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+
+                  {/* AI Draw Button for Both */}
+                  <div className="w-full mt-4">
+                    <button
+                      type="button"
+                      onClick={() => handleGenerateAvatarAi()}
+                      disabled={isGeneratingAvatar || !canGenerateAvatar}
+                      title={
+                        !canGenerateAvatar
+                          ? "Vui lòng điền Tên, Danh hiệu và Tiểu sử trước khi vẽ ảnh"
+                          : "AI phân tích mô tả và vẽ cả 2 ảnh: Chân dung & Toàn thân"
+                      }
+                      className="w-full flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#26272e] border border-[#383a45] text-zinc-200 hover:bg-[#30323c] disabled:opacity-35 disabled:hover:bg-[#26272e] disabled:cursor-not-allowed text-xs font-semibold active:scale-95 transition-all cursor-pointer shadow-sm"
+                    >
+                      <Wand2 className="h-3.5 w-3.5 text-zinc-300" />
+                      {isGeneratingAvatar ? "AI Đang Vẽ 2 Ảnh..." : "AI Vẽ Cả 2 Ảnh"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Info Fields */}
+                <div className="md:col-span-7 space-y-4">
+                  {/* Row 1: Tên Nhân Vật & Giới Tính */}
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                    <div className="sm:col-span-8">
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Tên Nhân Vật <span className="text-zinc-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Lâm Uyển Nhi"
+                        className="w-full rounded-xl border border-[#31333c] bg-[#141518] px-3.5 py-2.5 text-xs sm:text-sm text-zinc-100 focus:border-zinc-400 focus:outline-none"
                       />
-                      {isGeneratingAvatar && (
-                        <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-xs">
-                          <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+                    </div>
+
+                    {/* Giới Tính */}
+                    <div className="sm:col-span-4 relative" ref={genderDropdownRef}>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                        Giới Tính
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setIsGenderDropdownOpen(!isGenderDropdownOpen)}
+                        className="w-full flex items-center justify-between rounded-xl border border-[#31333c] bg-[#141518] px-3.5 py-2.5 text-xs sm:text-sm text-zinc-100 hover:border-zinc-400 transition-colors"
+                      >
+                        <span className="truncate">{selectedGender.label}</span>
+                        <ChevronDown className="h-4 w-4 text-zinc-400 shrink-0" />
+                      </button>
+
+                      {isGenderDropdownOpen && (
+                        <div className="absolute left-0 top-full mt-1.5 w-full rounded-xl border border-[#383a45] bg-[#1c1d22] p-1 shadow-2xl z-50">
+                          {GENDER_OPTIONS.map((g) => (
+                            <button
+                              key={g.id}
+                              type="button"
+                              onClick={() => {
+                                setGender(g.id);
+                                if (g.id === "Male") setVoiceGender("Male");
+                                else if (g.id === "Female") setVoiceGender("Female");
+                                setIsGenderDropdownOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors ${
+                                gender === g.id
+                                  ? "bg-zinc-800 text-white font-bold"
+                                  : "text-zinc-300 hover:bg-[#282932] hover:text-white"
+                              }`}
+                            >
+                              <span>{g.label}</span>
+                              {gender === g.id && <Check className="h-3.5 w-3.5 text-zinc-300" />}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Row 2: Danh Hiệu / Vai Trò (Full Width) */}
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                      Danh Hiệu / Vai Trò <span className="text-zinc-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="Nữ Họa Sĩ Tự Do, Bác Sĩ Tâm Lý Trực Đêm, Nữ Thần Tượng..."
+                      className="w-full rounded-xl border border-[#31333c] bg-[#141518] px-3.5 py-2.5 text-xs sm:text-sm text-zinc-100 focus:border-zinc-400 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Category Dropdown */}
+                    <div className="relative" ref={categoryDropdownRef}>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">Thể Loại Phân Mục</label>
+                      <button
+                        type="button"
+                        onClick={() => setIsCategoryOpen(!isCategoryOpen)}
+                        className="w-full flex items-center justify-between rounded-xl border border-[#31333c] bg-[#141518] px-3.5 py-2.5 text-xs sm:text-sm text-zinc-100 focus:border-zinc-400"
+                      >
+                        <span className="flex items-center gap-2">
+                          <CategoryIcon className="h-4 w-4 text-zinc-300" />
+                          {currentCategory.label}
+                        </span>
+                        <ChevronDown className="h-4 w-4 text-zinc-400" />
+                      </button>
+
+                      {isCategoryOpen && (
+                        <div className="absolute top-full left-0 right-0 mt-1.5 bg-[#1c1d22] border border-[#343742] rounded-xl shadow-xl z-30 py-1.5">
+                          {CATEGORIES.map((cat) => {
+                            const Icon = cat.icon;
+                            return (
+                              <button
+                                key={cat.id}
+                                type="button"
+                                onClick={() => {
+                                  setCategory(cat.id);
+                                  setIsCategoryOpen(false);
+                                }}
+                                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-zinc-200 hover:bg-[#26272e] hover:text-white transition-colors"
+                              >
+                                <Icon className="h-4 w-4 text-zinc-300" />
+                                {cat.label}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
 
-                    <p className="mt-3.5 max-w-sm text-xs sm:text-sm font-normal text-zinc-300 leading-relaxed">
-                      Bạn đã thiết lập ảnh đại diện. Chọn ảnh mới hoặc chỉnh sửa ảnh hiện tại.
-                    </p>
-
-                    <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => handleGenerateAvatarAi()}
-                        disabled={isGeneratingAvatar}
-                        className="flex items-center gap-1.5 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-300 px-4 py-2 text-xs font-bold text-zinc-950 shadow-md hover:from-amber-300 hover:to-amber-200 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-                        title="AI sẽ dựa vào tên và tính cách để vẽ lại một Avatar Anime khác"
-                      >
-                        {isGeneratingAvatar ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-950" />
-                        ) : (
-                          <Sparkles className="h-3.5 w-3.5 text-zinc-950" />
-                        )}
-                        <span>{isGeneratingAvatar ? "Đang vẽ ảnh..." : "AI Vẽ Lại Avatar"}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="rounded-2xl bg-zinc-100 px-4 py-2 text-xs font-bold text-zinc-950 shadow-md hover:bg-white active:scale-95 transition-all cursor-pointer"
-                      >
-                        Chọn ảnh từ máy
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (rawAvatarImage || avatarUrl) {
-                            setIsCropperOpen(true);
-                          }
-                        }}
-                        className="rounded-2xl border border-[#3b3d46] bg-[#2b2c34] px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-[#353740] hover:text-white active:scale-95 transition-all cursor-pointer"
-                      >
-                        Chỉnh sửa
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAvatarUrl("");
-                          setRawAvatarImage(null);
-                        }}
-                        className="rounded-2xl border border-transparent px-3 py-2 text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-950/20 transition-all cursor-pointer"
-                      >
-                        Xóa ảnh
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div
-                      onClick={() => !isGeneratingAvatar && handleGenerateAvatarAi()}
-                      className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full border-2 border-dashed border-[#3b3d46] bg-[#212227] text-zinc-400 hover:border-amber-400/60 hover:text-amber-300 cursor-pointer shadow-inner transition-all group"
-                      title="Bấm để AI tự động phác họa Avatar"
-                    >
-                      {isGeneratingAvatar ? (
-                        <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
-                      ) : (
-                        <Sparkles className="h-6 w-6 group-hover:scale-110 text-amber-400/80 group-hover:text-amber-300 transition-transform" />
-                      )}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-300 mb-1.5">Thẻ Từ Khóa (Tags)</label>
+                      <input
+                        type="text"
+                        value={tagsInput}
+                        onChange={(e) => setTagsInput(e.target.value)}
+                        placeholder="Hội họa, Nuôi mèo, Dịu dàng..."
+                        className="w-full rounded-xl border border-[#31333c] bg-[#141518] px-3.5 py-2.5 text-xs sm:text-sm text-zinc-100 focus:border-zinc-400 focus:outline-none"
+                      />
                     </div>
 
-                    <p className="mt-3 max-w-sm text-xs sm:text-sm font-normal text-zinc-400 leading-relaxed">
-                      Chưa có ảnh đại diện. Bạn có thể để <span className="text-amber-300 font-semibold">AI tự phác họa hình ảnh</span> hoặc chọn ảnh từ máy tính.
-                    </p>
-
-                    <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => handleGenerateAvatarAi()}
-                        disabled={isGeneratingAvatar}
-                        className="flex items-center gap-1.5 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-300 px-4 py-2 text-xs font-bold text-zinc-950 shadow-md hover:from-amber-300 hover:to-amber-200 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-                        title="AI sẽ tự động phác họa bức tranh chân dung phù hợp với nhân vật"
-                      >
-                        {isGeneratingAvatar ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-950" />
-                        ) : (
-                          <Sparkles className="h-3.5 w-3.5 text-zinc-950" />
-                        )}
-                        <span>{isGeneratingAvatar ? "Đang vẽ ảnh..." : "AI Tự Vẽ Avatar"}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="rounded-2xl bg-zinc-100 px-4 py-2 text-xs font-bold text-zinc-950 shadow-md hover:bg-white active:scale-95 transition-all cursor-pointer"
-                      >
-                        Chọn ảnh từ máy
-                      </button>
+                    {/* Personality Prompt & Bio */}
+                    <div className="sm:col-span-2">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-bold text-zinc-300">
+                          Tiểu Sử & Cuộc Đời Nhân Vật <span className="text-zinc-400">*</span>
+                        </label>
+                        <span className="text-[10px] text-zinc-500">Ngoại hình • Xuất thân • Tính cách</span>
+                      </div>
+                      <textarea
+                        rows={7}
+                        value={personalityPrompt}
+                        onChange={(e) => setPersonalityPrompt(e.target.value)}
+                        placeholder="Viết tiểu sử chi tiết về ngoại hình, nghề nghiệp, tính cách và những khát vọng của nhân vật..."
+                        className="w-full min-h-[160px] rounded-xl border border-[#31333c] bg-[#141518] p-3.5 text-xs sm:text-sm text-zinc-100 focus:border-zinc-400 focus:outline-none leading-relaxed resize-y"
+                      />
                     </div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Row 4: Greeting */}
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Lời chào mở đầu *</label>
-              <textarea
-                rows={3}
-                value={greeting}
-                onChange={(e) => setGreeting(e.target.value)}
-                placeholder="VD: *mỉm cười dịu dàng bước tới gần bạn* Chào bạn! Hôm nay của bạn thế nào? Có chuyện gì muốn tâm sự cùng mình không..."
-                className="w-full rounded-2xl border border-[#31333a] bg-[#191a1e] p-4 text-sm text-zinc-100 placeholder-zinc-500 focus:border-[#525562] focus:bg-[#1e2025] focus:outline-none transition-colors leading-relaxed resize-none"
-                required
-              />
-            </div>
-
-            {/* Row 5: Personality Prompt */}
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                Tính cách & Bối cảnh nhân vật *
-              </label>
-              <textarea
-                rows={4}
-                value={personalityPrompt}
-                onChange={(e) => setPersonalityPrompt(e.target.value)}
-                placeholder="VD: Bạn là một cô gái dịu dàng, ấm áp. Luôn xưng 'mình' gọi 'bạn', biết lắng nghe chân thành và tạo cảm giác an toàn cho người trò chuyện..."
-                className="w-full rounded-2xl border border-[#31333a] bg-[#191a1e] p-4 text-sm text-zinc-100 placeholder-zinc-500 focus:border-[#525562] focus:bg-[#1e2025] focus:outline-none transition-colors leading-relaxed resize-none"
-                required
-              />
-            </div>
-
-            {/* Row 6: Tags */}
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Thẻ từ khóa (cách nhau bằng dấu phẩy)</label>
-              <input
-                type="text"
-                value={tagsInput}
-                onChange={(e) => setTagsInput(e.target.value)}
-                placeholder="VD: dịu dàng, lắng nghe, anime, tâm sự, kỳ ảo..."
-                className="w-full rounded-2xl border border-[#31333a] bg-[#191a1e] px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-[#525562] focus:bg-[#1e2025] focus:outline-none transition-colors"
-              />
-            </div>
-
-            {/* Row 7: Initial Affection & Relationship Level */}
-            <div className="rounded-2xl border border-[#31333a] bg-[#191a1e] p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Heart className="h-4 w-4 text-pink-400" />
-                  <span className="text-xs font-semibold text-zinc-200">
-                    Cột mốc & Hảo cảm khởi đầu (Từ Cừu Hận Đến Tri Kỷ)
-                  </span>
+                  </div>
                 </div>
-                <span className="text-xs font-mono font-bold text-pink-400">
-                  {defaultAffectionScore > 0 ? `+${defaultAffectionScore}` : defaultAffectionScore}% ({getAffectionStage(defaultAffectionScore).name})
-                </span>
               </div>
 
-              {/* Preset buttons */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-1.5">
-                {[
-                  { score: -80, label: "💀 Kẻ Thù", desc: "-80%" },
-                  { score: -40, label: "⚔️ Thù Địch", desc: "-40%" },
-                  { score: 0, label: "👤 Người Lạ", desc: "0%" },
-                  { score: 30, label: "🤝 Người Quen", desc: "+30%" },
-                  { score: 55, label: "🌟 Bạn Thân", desc: "+55%" },
-                  { score: 80, label: "💖 Tri Kỷ", desc: "+80%" },
-                  { score: 95, label: "💍 Linh Hồn", desc: "+95%" },
-                ].map((p) => {
-                  const stage = getAffectionStage(p.score);
-                  const currentSt = getAffectionStage(defaultAffectionScore);
-                  const isSelected = currentSt.level === stage.level;
+              {/* Visual Traits Breakdown */}
+              <div className="p-4 rounded-2xl bg-[#17181c] border border-[#2b2d35] space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-zinc-300">
+                  <Eye className="h-4 w-4 text-zinc-400" />
+                  Đặc Điểm Nhận Diện Thị Giác (Để AI vẽ ảnh đồng nhất)
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-[11px] text-zinc-400 mb-1">Mái Tóc</label>
+                    <input
+                      type="text"
+                      value={hair}
+                      onChange={(e) => setHair(e.target.value)}
+                      placeholder="Tóc đen dài buông xõa"
+                      className="w-full rounded-lg border border-[#31333c] bg-[#121316] px-2.5 py-1.5 text-xs text-zinc-200 focus:border-zinc-400 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-zinc-400 mb-1">Đôi Mắt</label>
+                    <input
+                      type="text"
+                      value={eyes}
+                      onChange={(e) => setEyes(e.target.value)}
+                      placeholder="Mắt màu hổ phách dịu dàng"
+                      className="w-full rounded-lg border border-[#31333c] bg-[#121316] px-2.5 py-1.5 text-xs text-zinc-200 focus:border-zinc-400 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-zinc-400 mb-1">Gu Trang Phục</label>
+                    <input
+                      type="text"
+                      value={clothingStyle}
+                      onChange={(e) => setClothingStyle(e.target.value)}
+                      placeholder="Váy yếm trắng, áo len mỏng"
+                      className="w-full rounded-lg border border-[#31333c] bg-[#121316] px-2.5 py-1.5 text-xs text-zinc-200 focus:border-zinc-400 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-zinc-400 mb-1">Nét Đặc Trưng</label>
+                    <input
+                      type="text"
+                      value={visualTraits}
+                      onChange={(e) => setVisualTraits(e.target.value)}
+                      placeholder="Nốt ruồi nhỏ dưới khóe mắt"
+                      className="w-full rounded-lg border border-[#31333c] bg-[#121316] px-2.5 py-1.5 text-xs text-zinc-200 focus:border-zinc-400 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
-                  return (
+          {/* TAB 2: WORLD & UNIVERSE */}
+          {activeTab === "world" && (
+            <div className="space-y-5 animate-in fade-in duration-150">
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-2">
+                  Chọn Thể Loại Vũ Trụ & Thế Giới (World Genre)
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                  {WORLD_GENRE_OPTIONS.map((g) => (
                     <button
-                      key={p.score}
+                      key={g.id}
                       type="button"
-                      onClick={() => setDefaultAffectionScore(p.score)}
-                      className={`flex flex-col items-center justify-center p-2 rounded-xl border text-center transition-all cursor-pointer ${
-                        isSelected
-                          ? "bg-pink-950/40 border-pink-500/50 text-pink-200 ring-1 ring-pink-500/30"
-                          : "bg-[#212229] border-[#31333d] text-zinc-400 hover:text-zinc-200 hover:bg-[#282a33]"
+                      onClick={() => setWorldGenre(g.id)}
+                      className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                        worldGenre === g.id
+                          ? "bg-[#272832] border-zinc-200 shadow-md"
+                          : "bg-[#141518] border-[#2b2d35] hover:border-[#3e414c] hover:bg-[#1c1d22]"
                       }`}
                     >
-                      <span className="text-[11px] font-bold truncate">{p.label}</span>
-                      <span className="text-[10px] text-zinc-500 font-mono">{p.desc}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Range Slider */}
-              <div className="space-y-1 pt-1">
-                <input
-                  type="range"
-                  min="-100"
-                  max="100"
-                  value={defaultAffectionScore}
-                  onChange={(e) => setDefaultAffectionScore(parseInt(e.target.value, 10) || 0)}
-                  className="w-full h-1.5 bg-[#2a2c38] rounded-lg appearance-none cursor-pointer accent-pink-500"
-                />
-                <div className="flex justify-between text-[10px] font-mono text-zinc-500 px-0.5">
-                  <span>-100% (Cực Hận)</span>
-                  <span>0% (Người Lạ)</span>
-                  <span>+100% (Gắn Kết)</span>
-                </div>
-              </div>
-
-              {/* Initial Mood */}
-              <div className="pt-2 border-t border-[#292b34] space-y-1.5">
-                <label className="block text-[11px] font-semibold text-zinc-400">
-                  Tâm trạng khởi đầu của nhân vật (Tùy chọn)
-                </label>
-                <input
-                  type="text"
-                  value={defaultMood}
-                  onChange={(e) => setDefaultMood(e.target.value)}
-                  placeholder="VD: Cực kỳ căm ghét & Sát khí, Khó chịu & Cay cú, Lạnh lùng & Đề phòng, Cởi mở, E thẹn..."
-                  className="w-full rounded-xl border border-[#2d303b] bg-[#16171d] px-3 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:border-[#525562] focus:outline-none transition-colors"
-                />
-                <div className="flex flex-wrap gap-1 pt-1">
-                  {[
-                    "Cực kỳ căm ghét & Sát khí",
-                    "Khó chịu & Cay cú",
-                    "Lạnh lùng & Đề phòng",
-                    "Cởi mở & Thân thiện",
-                    "E thẹn & Ngại ngùng",
-                    "Cung kính & Tận tụy",
-                    "Ấm áp & Dịu dàng",
-                  ].map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setDefaultMood(m)}
-                      className="rounded-lg bg-[#242530] hover:bg-[#2e303d] px-2 py-0.5 text-[10px] text-zinc-400 hover:text-zinc-200 border border-[#363847] transition-all cursor-pointer"
-                    >
-                      {m}
+                      <div className="text-xl mb-1">{g.emoji}</div>
+                      <div>
+                        <div className="text-xs font-bold text-zinc-100">{g.label}</div>
+                        <div className="text-[10px] text-zinc-400 mt-0.5 line-clamp-2">{g.desc}</div>
+                      </div>
                     </button>
                   ))}
                 </div>
               </div>
-            </div>
 
-            {/* Row 7.5: Dynamic Relationship Milestones Editor */}
-            <RelationshipMilestonesEditor
-              milestones={customMilestones}
-              onChange={setCustomMilestones}
-            />
-
-            {/* Row 8: Public / Private Switch */}
-            <div className="flex items-center justify-between rounded-2xl border border-[#31333a] bg-[#191a1e] p-4">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl border ${
-                    isPublic
-                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                      : "border-amber-500/30 bg-amber-500/10 text-amber-400"
-                  }`}
-                >
-                  {isPublic ? <Globe className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1.5">Tên Thế Giới / Thành Phố</label>
+                  <input
+                    type="text"
+                    value={worldName}
+                    onChange={(e) => setWorldName(e.target.value)}
+                    placeholder="Thành Phố Hà Nội Hiện Đại / Cửu Châu Đại Lục"
+                    className="w-full rounded-xl border border-[#31333c] bg-[#141518] px-3.5 py-2.5 text-xs sm:text-sm text-zinc-100 focus:border-zinc-400 focus:outline-none"
+                  />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-zinc-200">
-                    {isPublic
-                      ? "Công khai (Mọi người đều có thể khám phá & trò chuyện)"
-                      : "Riêng tư (Chỉ một mình bạn có thể thấy và trò chuyện)"}
-                  </div>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">
-                    {isPublic
-                      ? "Nhân vật sẽ xuất hiện trên trang chủ và cộng đồng"
-                      : "Nhân vật chỉ lưu trữ và hiển thị trong Studio của riêng bạn"}
-                  </p>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1.5">Quy Tắc Vật Lý / Sức Mạnh Tùy Biến</label>
+                  <input
+                    type="text"
+                    value={customPhysicsRules}
+                    onChange={(e) => setCustomPhysicsRules(e.target.value)}
+                    placeholder="Tuân thủ quy tắc vật lý đời thường, không có phép thuật"
+                    className="w-full rounded-xl border border-[#31333c] bg-[#141518] px-3.5 py-2.5 text-xs sm:text-sm text-zinc-100 focus:border-zinc-400 focus:outline-none"
+                  />
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">Mô Tả Bối Cảnh & Môi Trường Thế Giới</label>
+                <textarea
+                  rows={3}
+                  value={worldDescription}
+                  onChange={(e) => setWorldDescription(e.target.value)}
+                  placeholder="Mô tả bối cảnh xã hội, khí hậu, thời đại và các thế lực đang tranh đoạt..."
+                  className="w-full rounded-2xl border border-[#31333c] bg-[#141518] p-3 text-xs sm:text-sm text-zinc-100 focus:border-zinc-400 focus:outline-none leading-relaxed"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: PSYCHOLOGY & BOUNDARIES */}
+          {activeTab === "psychology" && (
+            <div className="space-y-5 animate-in fade-in duration-150">
+              <div className="p-4 rounded-2xl bg-[#17181c] border border-[#2b2d35]">
+                <h4 className="text-xs font-bold text-zinc-200 flex items-center gap-1.5 mb-1">
+                  <Brain className="h-4 w-4 text-zinc-400" /> Bản Thiết Kế Tâm Lý & Lòng Tự Trọng (Anti-Sycophancy)
+                </h4>
+                <p className="text-[11px] text-zinc-400">
+                  Giúp nhân vật có lập trường độc lập, từ chối nịnh bợ mù quáng và có phản ứng tự nhiên khi bị xúc phạm hoặc trêu chọc.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1.5">Khát Vọng Thầm Kín (Desires)</label>
+                  <input
+                    type="text"
+                    value={desires}
+                    onChange={(e) => setDesires(e.target.value)}
+                    placeholder="Mở một phòng tranh riêng, tìm được tri kỷ thấu hiểu"
+                    className="w-full rounded-xl border border-[#31333c] bg-[#141518] px-3.5 py-2.5 text-xs text-zinc-100 focus:border-zinc-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1.5">Nỗi Sợ Sâu Nhất (Fears)</label>
+                  <input
+                    type="text"
+                    value={fears}
+                    onChange={(e) => setFears(e.target.value)}
+                    placeholder="Sợ sự phản bội, sợ bị lãng quên trong cô độc"
+                    className="w-full rounded-xl border border-[#31333c] bg-[#141518] px-3.5 py-2.5 text-xs text-zinc-100 focus:border-zinc-400 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1.5">Phản Ứng Khi Tức Giận / Bị Xúc Phạm</label>
+                  <input
+                    type="text"
+                    value={whenAngry}
+                    onChange={(e) => setWhenAngry(e.target.value)}
+                    placeholder="Lạnh lùng im lặng, ánh mắt sắc lạnh và giữ khoảng cách"
+                    className="w-full rounded-xl border border-[#31333c] bg-[#141518] px-3.5 py-2.5 text-xs text-zinc-100 focus:border-zinc-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1.5">Phản Ứng Khi Vui Vẻ / Được Khen</label>
+                  <input
+                    type="text"
+                    value={whenHappy}
+                    onChange={(e) => setWhenHappy(e.target.value)}
+                    placeholder="Đôi mắt cong lại cười dịu dàng, khẽ đỏ mặt ngượng ngùng"
+                    className="w-full rounded-xl border border-[#31333c] bg-[#141518] px-3.5 py-2.5 text-xs text-zinc-100 focus:border-zinc-400 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">Ranh Giới Đỏ Cá Nhân (Personal Boundaries)</label>
+                <input
+                  type="text"
+                  value={boundaries}
+                  onChange={(e) => setBoundaries(e.target.value)}
+                  placeholder="Không chấp nhận kẻ dối trá; Tuyệt đối từ chối đụng chạm khi chưa thân thiết"
+                  className="w-full rounded-xl border border-[#31333c] bg-[#141518] px-3.5 py-2.5 text-xs text-zinc-100 focus:border-zinc-400 focus:outline-none"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: LOREBOOK */}
+          {activeTab === "lorebook" && (
+            <div className="space-y-5 animate-in fade-in duration-150">
+              <div className="p-4 rounded-2xl bg-[#17181c] border border-[#2b2d35]">
+                <h4 className="text-xs font-bold text-zinc-200 flex items-center gap-1.5 mb-1">
+                  <BookOpen className="h-4 w-4 text-zinc-400" /> Bách Khoa Tri Thức Thế Giới (World Lorebook)
+                </h4>
+                <p className="text-[11px] text-zinc-400">
+                  Ghi nhớ các địa danh, tổ chức, thần vật hoặc truyền thuyết. Khi nhắc đến từ khóa, AI sẽ tự động kích hoạt tri thức này!
+                </p>
+              </div>
+
+              {/* Add Lorebook Item */}
+              <div className="p-4 rounded-2xl bg-[#141518] border border-[#2b2d35] space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] text-zinc-400 mb-1">Tiêu Đề Tri Thức</label>
+                    <input
+                      type="text"
+                      value={newLoreTitle}
+                      onChange={(e) => setNewLoreTitle(e.target.value)}
+                      placeholder="Phòng Tranh Mưa Đêm"
+                      className="w-full rounded-lg border border-[#31333c] bg-[#111215] px-3 py-2 text-xs text-zinc-100 focus:border-zinc-400 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-zinc-400 mb-1">Từ Khóa Kích Hoạt (Cách nhau bằng dấu phẩy)</label>
+                    <input
+                      type="text"
+                      value={newLoreKeywords}
+                      onChange={(e) => setNewLoreKeywords(e.target.value)}
+                      placeholder="phòng tranh, tranh vẽ, triển lãm"
+                      className="w-full rounded-lg border border-[#31333c] bg-[#111215] px-3 py-2 text-xs text-zinc-100 focus:border-zinc-400 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] text-zinc-400 mb-1">Nội Dung Tri Thức Chi Tiết</label>
+                  <textarea
+                    rows={2}
+                    value={newLoreContent}
+                    onChange={(e) => setNewLoreContent(e.target.value)}
+                    placeholder="Mô tả về nơi này hoặc sự kiện này đối với nhân vật..."
+                    className="w-full rounded-lg border border-[#31333c] bg-[#111215] p-2.5 text-xs text-zinc-100 focus:border-zinc-400 focus:outline-none"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddLorebook}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#26272e] border border-[#383a45] text-zinc-200 hover:bg-[#30323c] text-xs font-semibold active:scale-95 transition-all cursor-pointer"
+                >
+                  <Plus className="h-4 w-4" /> Thêm Mục Tri Thức
+                </button>
+              </div>
+
+              {/* Lorebook List */}
+              <div className="space-y-2">
+                {lorebookEntries.map((item, idx) => (
+                  <div key={idx} className="p-3.5 rounded-xl bg-[#17181c] border border-[#2b2d35] flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-bold text-zinc-200 flex items-center gap-2">
+                        {item.title}
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#272832] text-zinc-400 font-normal">
+                          Từ khóa: {item.keywords.join(", ")}
+                        </span>
+                      </div>
+                      <p className="text-xs text-zinc-400 mt-1 leading-relaxed">{item.content}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveLorebook(idx)}
+                      className="p-1.5 text-zinc-500 hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: INTIMACY & VOICE */}
+          {activeTab === "intimacy" && (
+            <div className="space-y-5 animate-in fade-in duration-150">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                    Điểm Thiện Cảm Ban Đầu: <span className="text-zinc-100">{defaultAffectionScore}</span> / 100
+                  </label>
+                  <input
+                    type="range"
+                    min={-100}
+                    max={100}
+                    value={defaultAffectionScore}
+                    onChange={(e) => setDefaultAffectionScore(Number(e.target.value))}
+                    className="w-full accent-zinc-200 cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-zinc-500 mt-1">
+                    <span>-100 (Thù địch)</span>
+                    <span>0 (Người lạ)</span>
+                    <span>100 (Tri kỷ)</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1.5">Tâm Trạng Khởi Đầu</label>
+                  <input
+                    type="text"
+                    value={defaultMood}
+                    onChange={(e) => setDefaultMood(e.target.value)}
+                    placeholder="Lạnh lùng & Đề phòng / Dịu dàng"
+                    className="w-full rounded-xl border border-[#31333c] bg-[#141518] px-3.5 py-2.5 text-xs text-zinc-100 focus:border-zinc-400 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Voice Profile */}
+              <div className="p-4 rounded-2xl bg-[#17181c] border border-[#2b2d35] space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-zinc-300">
+                  <Volume2 className="h-4 w-4 text-zinc-400" />
+                  Hồ Sơ Giọng Nói AI (TTS Engine)
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] text-zinc-400 mb-1">Giới Tính Giọng Đọc</label>
+                    <select
+                      value={voiceGender}
+                      onChange={(e) => setVoiceGender(e.target.value)}
+                      className="w-full rounded-lg border border-[#31333c] bg-[#121316] px-3 py-2 text-xs text-zinc-100 focus:border-zinc-400 focus:outline-none"
+                    >
+                      <option value="Female">Nữ (Female - Hoài My)</option>
+                      <option value="Male">Nam (Male - Nam Minh)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-zinc-400 mb-1">Ngữ Điệu Giọng Nói</label>
+                    <input
+                      type="text"
+                      value={voiceTone}
+                      onChange={(e) => setVoiceTone(e.target.value)}
+                      placeholder="Dịu dàng, trầm ấm, ngọt ngào..."
+                      className="w-full rounded-lg border border-[#31333c] bg-[#121316] px-3 py-2 text-xs text-zinc-100 focus:border-zinc-400 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Milestones Editor */}
+              <div>
+                <RelationshipMilestonesEditor
+                  milestones={customMilestones}
+                  onChange={setCustomMilestones}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Footer Submit Bar */}
+          <div className="pt-4 border-t border-[#292b33] flex items-center justify-between sticky bottom-0 bg-[#1c1d22] shrink-0">
+            <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+                className="rounded accent-zinc-200 h-4 w-4"
+              />
+              Công khai cho cộng đồng
+            </label>
+
+            <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => setIsPublic(!isPublic)}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  isPublic ? "bg-emerald-500" : "bg-zinc-700"
-                }`}
+                onClick={onClose}
+                className="px-4 py-2.5 rounded-xl border border-[#32353e] hover:bg-[#282a32] text-xs font-semibold text-zinc-300 transition-colors"
               >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                    isPublic ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
+                Hủy
+              </button>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin text-zinc-950" />
+                    <span>Đang Lưu...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" />
+                    <span>Hoàn Tất & Khởi Tạo Nhân Vật</span>
+                  </>
+                )}
               </button>
             </div>
-          </form>
-
-          {/* Fixed Footer Actions */}
-          <div className="flex items-center justify-end gap-3 px-6 py-4 sm:px-8 sm:py-5 border-t border-[#2c2e35] bg-[#1d1e23] shrink-0">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl border border-[#3b3d46] bg-[#2b2c34] px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-[#353740] hover:text-white transition-colors cursor-pointer"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              form="create-character-form"
-              disabled={isSubmitting}
-              className="flex items-center gap-2 rounded-xl bg-zinc-100 px-5 py-2 text-xs font-bold text-zinc-950 shadow-md hover:bg-white disabled:opacity-50 transition-all active:scale-95 cursor-pointer"
-            >
-              {isSubmitting ? (
-                <Loader2 className="h-4 w-4 animate-spin text-zinc-900" />
-              ) : (
-                <Wand2 className="h-4 w-4 text-zinc-900" />
-              )}
-              <span>{isSubmitting ? "Đang tạo..." : "Tạo Nhân Vật"}</span>
-            </button>
           </div>
-        </div>
+        </form>
+
+        {/* Avatar Cropper Modal */}
+        {isCropperOpen && rawAvatarImage && (
+          <ImageCropperModal
+            isOpen={isCropperOpen}
+            imageSrc={rawAvatarImage}
+            cropShape="round"
+            title="Cắt & Căn chỉnh ảnh đại diện (1:1)"
+            onSave={(croppedUrl: string) => {
+              setAvatarUrl(croppedUrl);
+              setIsCropperOpen(false);
+            }}
+            onClose={() => setIsCropperOpen(false)}
+          />
+        )}
+
+        {/* Full-Body Cropper Modal */}
+        {isFullBodyCropperOpen && rawFullBodyImage && (
+          <ImageCropperModal
+            isOpen={isFullBodyCropperOpen}
+            imageSrc={rawFullBodyImage}
+            cropShape="rect"
+            outputWidth={512}
+            outputHeight={768}
+            title="Cắt & Căn chỉnh ảnh toàn thân (2:3)"
+            onSave={(croppedUrl: string) => {
+              setFullBodyUrl(croppedUrl);
+              setIsFullBodyCropperOpen(false);
+            }}
+            onClose={() => setIsFullBodyCropperOpen(false)}
+          />
+        )}
       </div>
-
-      {/* Image Cropper Modal */}
-      <ImageCropperModal
-        isOpen={isCropperOpen}
-        onClose={() => setIsCropperOpen(false)}
-        imageSrc={rawAvatarImage || avatarUrl || null}
-        onSave={handleCropSave}
-        outputSize={512}
-      />
-
-      {/* Clear Draft Confirmation Dialog */}
-      <ConfirmDialog
-        isOpen={isClearDraftDialogOpen}
-        onClose={() => setIsClearDraftDialogOpen(false)}
-        onConfirm={handleConfirmClearDraft}
-        title="Làm mới nội dung form?"
-        description="Toàn bộ thông tin bạn đang nhập dở (tên, mô tả, ảnh, lời chào...) sẽ bị xóa để bạn nhập lại từ đầu."
-        confirmText="Xóa & Làm mới"
-        variant="warning"
-      />
-    </>
+    </div>
   );
 }

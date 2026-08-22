@@ -50,7 +50,7 @@ export function Header({ onOpenCreate }: HeaderProps) {
   const navItems = [
     {
       label: "Khám phá",
-      href: "/",
+      href: "/explore",
       icon: <Compass className="h-3.5 w-3.5" />,
     },
     {
@@ -121,25 +121,8 @@ export function Header({ onOpenCreate }: HeaderProps) {
             })}
           </nav>
 
-          {/* Right Zone: Actions & Auth */}
+          {/* Right Zone: Auth */}
           <div className="flex-1 flex items-center justify-end gap-3">
-            {onOpenCreate ? (
-              <button
-                onClick={onOpenCreate}
-                className="hidden sm:flex items-center gap-1.5 rounded-xl bg-zinc-100 px-3.5 py-1.5 text-xs font-bold text-zinc-950 shadow-md hover:bg-white active:scale-95 transition-all cursor-pointer"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Tạo Nhân vật</span>
-              </button>
-            ) : (
-              <Link
-                href="/studio"
-                className="hidden sm:flex items-center gap-1.5 rounded-xl bg-zinc-100 px-3.5 py-1.5 text-xs font-bold text-zinc-950 shadow-md hover:bg-white active:scale-95 transition-all cursor-pointer"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Tạo Nhân vật</span>
-              </Link>
-            )}
 
             {/* Auth Dropdown / Buttons */}
             {isAuthenticated && user ? (

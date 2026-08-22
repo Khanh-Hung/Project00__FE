@@ -9,6 +9,10 @@ export interface ImageCropperModalProps {
   imageSrc: string | null;
   onSave: (croppedDataUrl: string) => void;
   outputSize?: number;
+  outputWidth?: number;
+  outputHeight?: number;
+  cropShape?: "round" | "rect";
+  title?: string;
 }
 
 export function ImageCropperModal({
@@ -17,6 +21,10 @@ export function ImageCropperModal({
   imageSrc,
   onSave,
   outputSize = 512,
+  outputWidth,
+  outputHeight,
+  cropShape = "round",
+  title,
 }: ImageCropperModalProps) {
   const [zoom, setZoom] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -25,22 +33,28 @@ export function ImageCropperModal({
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const viewportSize = 220; // 220px circle viewport
+  const isRect = cropShape === "rect";
+  const viewportW = isRect ? 260 : 230;
+  const viewportH = isRect ? 390 : 230;
+  const outW = outputWidth || (isRect ? 512 : outputSize);
+  const outH = outputHeight || (isRect ? 768 : outputSize);
+
   const viewportRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
   const ratio = imageSize.width > 0 && imageSize.height > 0 ? imageSize.width / imageSize.height : 1;
-  const minZoom = ratio > 1 ? 1 / ratio : ratio;
+  const viewportRatio = viewportW / viewportH;
+  const minZoom = ratio > viewportRatio ? viewportRatio / ratio : ratio / viewportRatio;
 
-  let styleWidth = viewportSize;
-  let styleHeight = viewportSize;
+  let styleWidth = viewportW;
+  let styleHeight = viewportH;
   if (imageSize.width > 0 && imageSize.height > 0) {
-    if (ratio > 1) {
-      styleHeight = viewportSize;
-      styleWidth = viewportSize * ratio;
+    if (ratio > viewportRatio) {
+      styleHeight = viewportH;
+      styleWidth = viewportH * ratio;
     } else {
-      styleWidth = viewportSize;
-      styleHeight = viewportSize / ratio;
+      styleWidth = viewportW;
+      styleHeight = viewportW / ratio;
     }
   }
 
@@ -106,9 +120,6 @@ export function ImageCropperModal({
         img.onerror = reject;
       });
 
-      const outW = outputSize;
-      const outH = outputSize;
-
       const canvas = document.createElement("canvas");
       canvas.width = outW;
       canvas.height = outH;
@@ -123,12 +134,13 @@ export function ImageCropperModal({
       ctx.fillStyle = "#18191c";
       ctx.fillRect(0, 0, outW, outH);
 
-      const scaleFactor = outW / viewportSize;
+      const scaleFactor = outW / viewportW;
       let drawW = img.width;
       let drawH = img.height;
       const imgRatio = img.width / img.height;
+      const outRatio = outW / outH;
 
-      if (imgRatio > 1) {
+      if (imgRatio > outRatio) {
         drawH = outH;
         drawW = outH * imgRatio;
       } else {
@@ -182,12 +194,14 @@ export function ImageCropperModal({
     }
   };
 
+  const modalTitle = title || (isRect ? "Cắt & Căn chỉnh ảnh toàn thân (2:3)" : "Cắt & Căn chỉnh ảnh đại diện");
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md rounded-3xl border border-[#31333a] bg-[#212227] p-6 shadow-2xl overflow-hidden flex flex-col items-center">
+      <div className={`relative w-full ${isRect ? "max-w-lg" : "max-w-md"} rounded-3xl border border-[#31333a] bg-[#212227] p-6 shadow-2xl overflow-hidden flex flex-col items-center`}>
         {/* Header */}
-        <div className="w-full flex items-center justify-between border-b border-[#2c2e35] pb-4 mb-6">
-          <h3 className="text-base font-bold text-zinc-100">Cắt & Căn chỉnh ảnh đại diện</h3>
+        <div className="w-full flex items-center justify-between border-b border-[#2c2e35] pb-4 mb-4">
+          <h3 className="text-base font-bold text-zinc-100">{modalTitle}</h3>
           <button
             onClick={onClose}
             className="rounded-xl p-1.5 text-zinc-400 hover:bg-[#2b2c34] hover:text-zinc-100 transition-colors cursor-pointer"
@@ -203,7 +217,13 @@ export function ImageCropperModal({
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
-            className="relative h-[220px] w-[220px] rounded-full overflow-hidden border-2 border-zinc-400 shadow-2xl cursor-grab active:cursor-grabbing bg-black/60 select-none touch-none flex items-center justify-center ring-8 ring-black/40"
+            style={{
+              width: viewportW,
+              height: viewportH,
+            }}
+            className={`relative overflow-hidden border-2 border-zinc-400 shadow-2xl cursor-grab active:cursor-grabbing bg-black/60 select-none touch-none flex items-center justify-center ring-8 ring-black/40 ${
+              isRect ? "rounded-2xl" : "rounded-full"
+            }`}
           >
             <img
               ref={imgRef}
@@ -227,12 +247,12 @@ export function ImageCropperModal({
           </div>
         </div>
 
-        <p className="text-xs text-zinc-400 mt-4 text-center">
-          Kéo thả để di chuyển ảnh, dùng thanh trượt hoặc con lăn chuột để phóng to/thu nhỏ
+        <p className="text-xs text-zinc-400 mt-3 text-center">
+          Kéo thả để căn chỉnh vị trí, dùng thanh trượt hoặc lăn chuột để phóng to/thu nhỏ
         </p>
 
         {/* Zoom Controls */}
-        <div className="w-full mt-4 flex items-center gap-3 px-2">
+        <div className="w-full mt-3 flex items-center gap-3 px-2">
           <ZoomOut className="h-4 w-4 text-zinc-400 shrink-0" />
           <input
             type="range"
@@ -259,7 +279,7 @@ export function ImageCropperModal({
         </div>
 
         {/* Actions */}
-        <div className="w-full flex items-center gap-3 mt-6 pt-4 border-t border-[#2c2e35]">
+        <div className="w-full flex items-center gap-3 mt-5 pt-4 border-t border-[#2c2e35]">
           <button
             type="button"
             onClick={onClose}

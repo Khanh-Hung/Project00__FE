@@ -53,44 +53,50 @@ export default function RelationshipMilestonesEditor({
       {
         name: "Kẻ Thù Truyền Kiếp",
         minScore: -100,
-        maxScore: -61,
+        maxScore: -76,
         description: "Cực kỳ căm ghét, dùng lời đe dọa, khinh bỉ và sẵn sàng tấn công.",
       },
       {
-        name: "Thù Địch & Ác Cảm",
-        minScore: -60,
-        maxScore: -21,
-        description: "Khó chịu, mỉa mai, cự tuyệt tiếp xúc và giữ khoảng cách tối đa.",
+        name: "Căm Ghét & Khinh Bỉ",
+        minScore: -75,
+        maxScore: -51,
+        description: "Khó chịu, mỉa mai cay độc, cự tuyệt tiếp xúc và giữ khoảng cách tối đa.",
+      },
+      {
+        name: "Ác Cảm & Đề Phòng",
+        minScore: -50,
+        maxScore: -26,
+        description: "Lạnh nhạt, xa cách, hoài nghi mọi hành động và không tin lời bạn.",
       },
       {
         name: "Người Lạ",
-        minScore: -20,
-        maxScore: 20,
-        description: "Lịch thiệp, giữ khoảng cách và thận trọng quan sát bạn.",
+        minScore: -25,
+        maxScore: 0,
+        description: "Lịch thiệp xã giao, giữ khoảng cách và thận trọng quan sát bạn.",
       },
       {
-        name: "Người Quen",
-        minScore: 21,
-        maxScore: 45,
-        description: "Cởi mở hơn, sẵn sàng chào hỏi và chia sẻ thói quen đời thường.",
+        name: "Người Quen & Cởi Mở",
+        minScore: 1,
+        maxScore: 25,
+        description: "Bắt đầu cởi mở, thoải mái trò chuyện và sẵn sàng chia sẻ thói quen đời thường.",
       },
       {
         name: "Bạn Thân Thiết",
-        minScore: 46,
-        maxScore: 70,
-        description: "Xưng hô thân mật, hay trêu đùa và sẵn sàng bảo vệ bạn.",
+        minScore: 26,
+        maxScore: 50,
+        description: "Tin tưởng, xưng hô gần gũi, thích trêu đùa và sẵn sàng giúp đỡ, bảo vệ bạn.",
       },
       {
         name: "Tri Kỷ & Rung Động",
-        minScore: 71,
-        maxScore: 90,
-        description: "Rung động, tin tưởng tuyệt đối và chia sẻ những vết thương quá khứ.",
+        minScore: 51,
+        maxScore: 75,
+        description: "Rung động, gắn kết sâu sắc, ưu tiên bạn hàng đầu và chia sẻ những vết thương quá khứ.",
       },
       {
         name: "Gắn Kết Linh Hồn",
-        minScore: 91,
+        minScore: 76,
         maxScore: 100,
-        description: "Dành trọn trái tim, nguyện hy sinh và ở bên nhau trọn đời.",
+        description: "Dành trọn trái tim, nguyện hy sinh và tuyệt đối chung thủy bên bạn trọn đời.",
       },
     ];
     onChange(standard);
@@ -118,7 +124,7 @@ export default function RelationshipMilestonesEditor({
             className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-200 bg-[#24252f] hover:bg-[#2c2d3a] px-2.5 py-1 rounded-xl border border-[#363847] transition-all cursor-pointer"
           >
             <RefreshCw className="h-3 w-3" />
-            <span>Mẫu 7 mốc chuẩn</span>
+            <span>Mẫu 8 mốc chuẩn</span>
           </button>
           <button
             type="button"
@@ -134,7 +140,7 @@ export default function RelationshipMilestonesEditor({
       {milestones.length === 0 ? (
         <div className="p-4 rounded-xl border border-dashed border-[#343644] bg-[#15161c] text-center space-y-2">
           <p className="text-xs text-zinc-400">
-            Chưa có cột mốc riêng. Nhân vật sẽ sử dụng 7 cột mốc mặc định của hệ thống.
+            Chưa có cột mốc riêng. Nhân vật sẽ sử dụng 8 cột mốc mặc định của hệ thống.
           </p>
           <button
             type="button"

@@ -228,12 +228,19 @@ export const CharacterProfileSidebar: React.FC<CharacterProfileSidebarProps> = (
                   />
                 </div>
 
-                {/* Mood status */}
-                <div className="flex items-center gap-1.5 text-xs text-zinc-300 pt-1 border-t border-[#2c2e35]/60">
-                  <span className="text-zinc-500 text-[11px]">Tâm trạng:</span>
-                  <span className="font-semibold text-pink-300 bg-pink-950/40 px-2 py-0.5 rounded-lg border border-pink-800/30 text-[11px]">
-                    {session?.currentMood || currentStage.currentMood}
-                  </span>
+                {/* Mood status & Intensity */}
+                <div className="flex items-center justify-between text-xs text-zinc-300 pt-1 border-t border-[#2c2e35]/60">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-zinc-500 text-[11px]">Tâm trạng:</span>
+                    <span className="font-semibold text-pink-300 bg-pink-950/40 px-2 py-0.5 rounded-lg border border-pink-800/30 text-[11px]">
+                      {session?.currentMood || currentStage.currentMood}
+                    </span>
+                  </div>
+                  {session?.moodIntensity !== undefined && (
+                    <span className="text-[10px] font-mono text-zinc-400">
+                      Cường độ: {session.moodIntensity}%
+                    </span>
+                  )}
                 </div>
 
                 <button
@@ -244,6 +251,26 @@ export const CharacterProfileSidebar: React.FC<CharacterProfileSidebarProps> = (
                   Xem chi tiết cột mốc & đặc quyền →
                 </button>
               </div>
+
+              {/* Unlocked Relationship Events Card */}
+              {session?.unlockedEvents && session.unlockedEvents.length > 0 && (
+                <div className="rounded-2xl border border-amber-500/20 bg-amber-950/10 p-4 space-y-2.5 shadow-xs">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-amber-300">
+                      Bước Ngoặt Quan Hệ Đã Mở Khóa ({session.unlockedEvents.length})
+                    </span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {session.unlockedEvents.map((ev, idx) => (
+                      <div key={idx} className="rounded-xl border border-amber-500/20 bg-[#1b1c23] p-2.5 text-xs space-y-0.5">
+                        <div className="font-bold text-amber-300 text-[11px]">✨ {ev.eventKey}</div>
+                        <div className="text-zinc-300 text-[11px]">{ev.context}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Personality & Lore Card */}
               <div className="rounded-2xl border border-[#2e3038] bg-[#20222a] p-4 space-y-2">

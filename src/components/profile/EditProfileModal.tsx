@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { User, UpdateProfileRequest } from "@/types";
+import { User, UserProfile, UpdateUserProfileRequest, UpdateProfileRequest } from "@/types";
 import { Avatar } from "@/components/ui/Avatar";
 import { ImageCropperModal } from "@/components/ui/ImageCropperModal";
 import {
@@ -11,19 +11,20 @@ import {
   Check,
   Loader2,
   AlertCircle,
-  Clock,
-  Lock,
+  Sparkles,
 } from "lucide-react";
 
 interface EditProfileModalProps {
   user: User;
+  userProfile?: UserProfile | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (req: UpdateProfileRequest) => Promise<void>;
+  onSave: (authReq: UpdateProfileRequest, profileReq: UpdateUserProfileRequest) => Promise<void>;
 }
 
 export function EditProfileModal({
   user,
+  userProfile,
   isOpen,
   onClose,
   onSave,
@@ -34,6 +35,12 @@ export function EditProfileModal({
   const [rawAvatarImage, setRawAvatarImage] = useState<string | null>(null);
   const [isCropperOpen, setIsCropperOpen] = useState(false);
 
+  // Social Profile fields
+  const [bio, setBio] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
+  const [interestsInput, setInterestsInput] = useState("");
+  const [personalityTraitsInput, setPersonalityTraitsInput] = useState("");
+
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -41,13 +48,17 @@ export function EditProfileModal({
 
   useEffect(() => {
     if (user && isOpen) {
-      setDisplayName(user.displayName || user.userName || "User");
+      setDisplayName(userProfile?.displayName || user.displayName || user.userName || "User");
       setUserName(user.userName || "");
-      setAvatarUrl(user.avatarUrl || "");
-      setRawAvatarImage(user.avatarUrl || null);
+      setAvatarUrl(userProfile?.avatarUrl || user.avatarUrl || "");
+      setRawAvatarImage(userProfile?.avatarUrl || user.avatarUrl || null);
+      setBio(userProfile?.bio || "");
+      setStatusMessage(userProfile?.statusMessage || "");
+      setInterestsInput(userProfile?.interests?.join(", ") || "Lập trình, Nghe nhạc, Nuôi mèo");
+      setPersonalityTraitsInput(userProfile?.personalityTraits?.join(", ") || "Hướng nội, Ấm áp");
       setErrorMessage(null);
     }
-  }, [user, isOpen]);
+  }, [user, userProfile, isOpen]);
 
   if (!isOpen) return null;
 
@@ -92,224 +103,231 @@ export function EditProfileModal({
       setIsSaving(true);
       setErrorMessage(null);
 
-      await onSave({
+      const parsedInterests = interestsInput
+        .split(",")
+        .map((i) => i.trim())
+        .filter(Boolean);
+
+      const parsedTraits = personalityTraitsInput
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+
+      const authReq: UpdateProfileRequest = {
         displayName: displayName.trim(),
         avatarUrl: avatarUrl.trim(),
         userName: userName.trim() !== user.userName ? userName.trim() : undefined,
-      });
+      };
 
+      const profileReq: UpdateUserProfileRequest = {
+        displayName: displayName.trim(),
+        avatarUrl: avatarUrl.trim(),
+        bio: bio.trim() || undefined,
+        statusMessage: statusMessage.trim() || undefined,
+        interests: parsedInterests,
+        personalityTraits: parsedTraits,
+      };
+
+      await onSave(authReq, profileReq);
       onClose();
     } catch (err: any) {
-      setErrorMessage(err.message || "Không thể cập nhật hồ sơ.");
+      console.error("Save profile error:", err);
+      setErrorMessage(err.message || "Cập nhật hồ sơ thất bại. Vui lòng thử lại!");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const canChangeUserName = user.canChangeUserName ?? true;
-  const nextChangeDate = user.nextUserNameChangeDate
-    ? new Date(user.nextUserNameChangeDate).toLocaleDateString("vi-VN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
-    : null;
-
   return (
-    <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200">
-        <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-[#31333a] bg-[#212227] shadow-2xl">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-[#2c2e35] px-6 py-5 sm:px-8 shrink-0 bg-[#212227]">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#2b2c34] text-zinc-200 border border-[#3b3d46]">
-                <Edit3 className="h-4 w-4 text-pink-400" />
-              </div>
-              <div>
-                <h2 className="text-lg font-extrabold text-zinc-100">
-                  Chỉnh sửa hồ sơ
-                </h2>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  Cập nhật thông tin và ảnh đại diện của bạn
-                </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+      <div className="relative w-full max-w-xl max-h-[92vh] flex flex-col bg-[#1c1d22] border border-[#2e3038] rounded-3xl shadow-2xl overflow-hidden text-zinc-100 animate-in fade-in zoom-in-95 duration-200">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#292b33] bg-[#16171b]">
+          <div className="flex items-center gap-2.5">
+            <Edit3 className="h-5 w-5 text-zinc-200" />
+            <h2 className="text-base sm:text-lg font-bold text-zinc-100">
+              Chỉnh Sửa Hồ Sơ Cá Nhân
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-[#282a32] transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
+          {errorMessage && (
+            <div className="p-3.5 rounded-xl bg-red-950/30 border border-red-500/30 text-xs sm:text-sm text-red-300 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
+          {/* Avatar Upload */}
+          <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-[#16171b] border border-[#292b33]">
+            <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+              <Avatar
+                src={avatarUrl}
+                alt={displayName}
+                size="xl"
+                type="user"
+                className="!h-24 !w-24 !rounded-full border-2 border-[#3b3d46] shadow-xl group-hover:opacity-75 transition-opacity"
+              />
+              <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <Camera className="h-6 w-6 text-white" />
               </div>
             </div>
-
             <button
-              onClick={onClose}
-              className="rounded-xl p-2 text-zinc-400 hover:bg-[#2b2c34] hover:text-zinc-100 transition-colors cursor-pointer"
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="mt-3 text-xs text-zinc-300 hover:text-white font-semibold"
             >
-              <X className="h-5 w-5" />
+              Đổi ảnh đại diện
             </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
           </div>
 
-          {/* Body */}
-          <form id="edit-profile-form" onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-5">
-            {errorMessage && (
-              <div className="flex items-center gap-2 rounded-2xl bg-rose-500/10 border border-rose-500/30 p-3.5 text-xs font-medium text-rose-400">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>{errorMessage}</span>
-              </div>
-            )}
-
-            {/* Avatar Centered Section */}
-            <div className="flex flex-col items-center justify-center pb-2">
-              <div className="relative group">
-                <Avatar
-                  src={avatarUrl || user.avatarUrl}
-                  alt={user.userName}
-                  size="xl"
-                  type="user"
-                  className="!rounded-full !h-24 !w-24 border-2 border-[#3b3d46] shadow-xl"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white"
-                  title="Thay đổi ảnh đại diện"
-                >
-                  <Camera className="h-6 w-6" />
-                  <span className="text-[10px] font-semibold mt-1">Đổi ảnh</span>
-                </button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </div>
-
-              <div className="mt-3 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="text-xs font-semibold text-zinc-300 hover:text-white transition-colors cursor-pointer"
-                >
-                  Tải ảnh mới
-                </button>
-                {avatarUrl && (
-                  <>
-                    <span className="text-zinc-600">•</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (rawAvatarImage || avatarUrl) {
-                          setIsCropperOpen(true);
-                        }
-                      }}
-                      className="text-xs font-semibold text-zinc-300 hover:text-white transition-colors cursor-pointer"
-                    >
-                      Cắt ảnh
-                    </button>
-                    <span className="text-zinc-600">•</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAvatarUrl("");
-                        setRawAvatarImage(null);
-                      }}
-                      className="text-xs font-semibold text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
-                    >
-                      Xóa
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Display Name Input */}
+          {/* Basic Names */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-zinc-200 mb-1.5">
-                Tên hiển thị *
+              <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                Tên Hiển Thị <span className="text-zinc-400">*</span>
               </label>
               <input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="VD: Khánh Hưng, Mina, Hoàng Tử Gió..."
-                className="w-full rounded-2xl border border-[#31333a] bg-[#191a1e] px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-[#525562] focus:bg-[#1e2025] focus:outline-none transition-colors"
-                required
+                placeholder="Hoàng Long"
+                className="w-full rounded-xl border border-[#31333c] bg-[#141518] px-3.5 py-2.5 text-xs sm:text-sm text-zinc-100 focus:border-zinc-400 focus:outline-none"
               />
-              <p className="text-[11px] text-zinc-400 mt-1">
-                Tên gọi hiển thị khi giao tiếp, có thể đổi bất cứ lúc nào.
-              </p>
             </div>
 
-            {/* UserName Input */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-semibold text-zinc-200">
-                  Tên người dùng *
-                </label>
-                {!canChangeUserName && (
-                  <span className="flex items-center gap-1 text-[10px] font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md">
-                    <Lock className="h-2.5 w-2.5" />
-                    <span>Chờ đến {nextChangeDate}</span>
-                  </span>
-                )}
-              </div>
-
-              <div className="relative">
-                <span className="absolute left-4 top-2.5 text-sm font-semibold text-zinc-500">
-                  @
-                </span>
-                <input
-                  type="text"
-                  disabled={!canChangeUserName}
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  placeholder="VD: khanhhung, shadow99..."
-                  className="w-full rounded-2xl border border-[#31333a] bg-[#191a1e] pl-8 pr-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-[#525562] focus:bg-[#1e2025] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  required
-                />
-              </div>
-
-              <p className="text-[11px] text-zinc-400 mt-1 flex items-center gap-1">
-                <Clock className="h-3 w-3 text-zinc-500 shrink-0" />
-                <span>
-                  {canChangeUserName
-                    ? "Tên định danh duy nhất (viết liền không dấu). Đổi tối đa 1 lần mỗi 14 ngày."
-                    : `Bạn có thể đổi lại tên người dùng sau ngày ${nextChangeDate}.`}
-                </span>
-              </p>
+              <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                Tên Người Dùng (@username)
+              </label>
+              <input
+                type="text"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                placeholder="username"
+                className="w-full rounded-xl border border-[#31333c] bg-[#141518] px-3.5 py-2.5 text-xs sm:text-sm text-zinc-100 focus:border-zinc-400 focus:outline-none"
+              />
             </div>
-          </form>
+          </div>
 
-          {/* Footer Actions */}
-          <div className="flex items-center justify-end gap-3 px-6 py-4 sm:px-8 border-t border-[#2c2e35] bg-[#1d1e23] shrink-0">
+          {/* Status Message */}
+          <div>
+            <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+              Dòng Trạng Thái (Status Message)
+            </label>
+            <input
+              type="text"
+              value={statusMessage}
+              onChange={(e) => setStatusMessage(e.target.value)}
+              placeholder="Đang nghe nhạc Lofi và viết code..."
+              className="w-full rounded-xl border border-[#31333c] bg-[#141518] px-3.5 py-2.5 text-xs sm:text-sm text-zinc-100 focus:border-zinc-400 focus:outline-none"
+            />
+          </div>
+
+          {/* Bio */}
+          <div>
+            <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+              Tiểu Sử Bản Thân (Bio)
+            </label>
+            <textarea
+              rows={3}
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Giới thiệu đôi nét về bản thân, công việc, gu sống của bạn..."
+              className="w-full rounded-2xl border border-[#31333c] bg-[#141518] p-3 text-xs sm:text-sm text-zinc-100 focus:border-zinc-400 focus:outline-none leading-relaxed"
+            />
+          </div>
+
+          {/* Interests & Personality */}
+          <div className="p-4 rounded-2xl bg-[#16171b] border border-[#292b33] space-y-4">
+            <div className="flex items-center gap-2 text-xs font-bold text-zinc-200">
+              <Sparkles className="h-4 w-4 text-zinc-400" />
+              Sở Thích & Nét Tính Cách (Nhân vật AI sẽ đọc để chủ động bắt chuyện)
+            </div>
+
+            <div>
+              <label className="block text-[11px] text-zinc-400 mb-1">
+                Sở Thích (Interests - Cách nhau bằng dấu phẩy)
+              </label>
+              <input
+                type="text"
+                value={interestsInput}
+                onChange={(e) => setInterestsInput(e.target.value)}
+                placeholder="Lập trình, Nuôi mèo, Hội họa, Du lịch..."
+                className="w-full rounded-lg border border-[#31333c] bg-[#111215] px-3 py-2 text-xs text-zinc-100 focus:border-zinc-400 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] text-zinc-400 mb-1">
+                Nét Tính Cách (Personality Traits - Cách nhau bằng dấu phẩy)
+              </label>
+              <input
+                type="text"
+                value={personalityTraitsInput}
+                onChange={(e) => setPersonalityTraitsInput(e.target.value)}
+                placeholder="Hướng nội, Ấm áp, Thích yên tĩnh..."
+                className="w-full rounded-lg border border-[#31333c] bg-[#111215] px-3 py-2 text-xs text-zinc-100 focus:border-zinc-400 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="pt-4 border-t border-[#292b33] flex items-center justify-end gap-3 sticky bottom-0 bg-[#1c1d22]/95 backdrop-blur-sm">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-[#3b3d46] bg-[#2b2c34] px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-[#353740] hover:text-white transition-colors cursor-pointer"
+              className="px-4 py-2.5 rounded-xl border border-[#32353e] hover:bg-[#282a32] text-xs font-semibold text-zinc-300 transition-colors"
             >
               Hủy
             </button>
+
             <button
               type="submit"
-              form="edit-profile-form"
               disabled={isSaving}
-              className="flex items-center gap-2 rounded-xl bg-zinc-100 px-5 py-2 text-xs font-bold text-zinc-950 shadow-md hover:bg-white disabled:opacity-50 transition-all active:scale-95 cursor-pointer"
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all cursor-pointer disabled:opacity-50"
             >
               {isSaving ? (
-                <Loader2 className="h-4 w-4 animate-spin text-zinc-900" />
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin text-zinc-950" />
+                  <span>Đang Lưu...</span>
+                </>
               ) : (
-                <Check className="h-4 w-4 text-zinc-900" />
+                <>
+                  <Check className="h-4 w-4" />
+                  <span>Lưu Hồ Sơ</span>
+                </>
               )}
-              <span>{isSaving ? "Đang lưu..." : "Lưu Thay Đổi"}</span>
             </button>
           </div>
-        </div>
-      </div>
+        </form>
 
-      {/* Image Cropper Modal */}
-      <ImageCropperModal
-        isOpen={isCropperOpen}
-        onClose={() => setIsCropperOpen(false)}
-        imageSrc={rawAvatarImage || avatarUrl || null}
-        onSave={handleCropSave}
-        outputSize={512}
-      />
-    </>
+        {/* Cropper */}
+        {isCropperOpen && rawAvatarImage && (
+          <ImageCropperModal
+            isOpen={isCropperOpen}
+            imageSrc={rawAvatarImage}
+            onSave={handleCropSave}
+            onClose={() => setIsCropperOpen(false)}
+          />
+        )}
+      </div>
+    </div>
   );
 }

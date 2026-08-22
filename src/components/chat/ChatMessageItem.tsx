@@ -39,11 +39,14 @@ interface ChatMessageItemProps {
   isSending: boolean;
   isRollingBack: boolean;
   isLoadingSuggestions: boolean;
+  isImagining?: boolean;
+  sceneImageUrl?: string;
   onCopy: (id: string, text: string) => void;
   onRollback: (id: string, index: number) => void;
   onFetchSuggestions: () => void;
   onContinueStory: () => void;
   onRegenerate: () => void;
+  onImagineScene?: (id: string, content: string) => void;
 }
 
 export const getActionMeta = (actionText: string, colorClass: string) => {
@@ -195,11 +198,14 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
   isSending,
   isRollingBack,
   isLoadingSuggestions,
+  isImagining = false,
+  sceneImageUrl,
   onCopy,
   onRollback,
   onFetchSuggestions,
   onContinueStory,
   onRegenerate,
+  onImagineScene,
 }) => {
   return (
     <div
@@ -216,9 +222,9 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
           <Avatar
             src={session?.characterAvatar}
             alt={session?.characterName || "AI"}
-            size="sm"
+            size="md"
             type="character"
-            className="!rounded-2xl border border-[#3b3d46] shrink-0"
+            className="!rounded-2xl border border-[#3b3d46] shrink-0 mt-0.5 shadow-md"
           />
         )}
         {isUser && (
@@ -232,8 +238,10 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
         )}
 
         <div
-          className={`min-w-[200px] sm:min-w-[240px] rounded-2xl px-4 py-3.5 shadow-lg transition-all border border-[#31333a] bg-[#212227] text-zinc-100 backdrop-blur-md ${
-            isUser ? "rounded-tr-none" : "rounded-tl-none"
+          className={`relative rounded-3xl p-4 sm:p-5 text-sm shadow-md leading-relaxed transition-all ${
+            isUser
+              ? "bg-[#2b2d35] text-white rounded-tr-xs border border-[#3b3d46]"
+              : "bg-[#212227] text-zinc-200 rounded-tl-xs border border-[#31333a]"
           }`}
         >
           {isOpeningMessage && (
@@ -246,6 +254,21 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
           )}
 
           <div>{formatMessageContent(msg.content, theme)}</div>
+
+          {/* Generated Scene Illustration Image */}
+          {sceneImageUrl && (
+            <div className="mt-3 overflow-hidden rounded-2xl border border-[#3b3d46] bg-[#121316] shadow-xl group relative">
+              <img
+                src={sceneImageUrl}
+                alt="Minh họa khoảnh khắc"
+                className="w-full h-auto max-h-[420px] object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+              <div className="absolute bottom-2 right-2 rounded-lg bg-black/70 backdrop-blur-xs px-2.5 py-1 text-[10px] text-zinc-200 font-semibold flex items-center gap-1.5 shadow-md">
+                <Sparkles className="h-3 w-3 text-purple-400" />
+                <span>Khoảnh khắc AI</span>
+              </div>
+            </div>
+          )}
 
           <div className="mt-3 flex items-center justify-between gap-4 pt-2 border-t border-[#2c2e35]/60 text-[10px] text-zinc-500">
             <span className="shrink-0 font-mono tracking-tight text-zinc-400">
@@ -266,6 +289,23 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
                 >
                   <Undo2 className="h-3 w-3 text-amber-400" />
                   <span>Quay về đây</span>
+                </button>
+              )}
+
+              {!isUser && onImagineScene && (
+                <button
+                  type="button"
+                  onClick={() => onImagineScene(msg.id, msg.content)}
+                  disabled={isSending || isImagining}
+                  className="flex items-center gap-1.5 rounded-lg bg-[#272832] px-2.5 py-1 text-[11px] font-medium text-zinc-300 hover:bg-[#323440] hover:text-purple-300 transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
+                  title="AI vẽ lại khoảnh khắc nhân vật trong câu thoại này"
+                >
+                  {isImagining ? (
+                    <Loader2 className="h-3 w-3 animate-spin text-purple-400" />
+                  ) : (
+                    <Sparkles className="h-3 w-3 text-purple-400" />
+                  )}
+                  <span>{isImagining ? "Đang vẽ..." : "Vẽ cảnh"}</span>
                 </button>
               )}
 
