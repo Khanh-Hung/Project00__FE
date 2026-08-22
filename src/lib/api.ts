@@ -14,6 +14,11 @@ import {
   SendMessageResponse,
   User,
   CharacterMemory,
+  UserProfile,
+  UpdateUserProfileRequest,
+  ProactiveReachoutResponse,
+  WorldGenre,
+  CharacterVisualIdentity,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
@@ -99,7 +104,7 @@ export async function registerUser(req: RegisterRequest): Promise<AuthResponse> 
   return json.data;
 }
 
-export async function updateUserProfile(req: UpdateProfileRequest): Promise<User> {
+export async function updateAuthProfile(req: UpdateProfileRequest): Promise<User> {
   const res = await fetch(`${API_BASE_URL}/auth/profile`, {
     method: "PUT",
     headers: {
@@ -394,7 +399,9 @@ export async function generateCharacterAvatar(req: {
   category?: string;
   personalityPrompt?: string;
   idea?: string;
-}): Promise<{ avatarUrl: string; prompt: string }> {
+  worldGenre?: WorldGenre | number;
+  visualIdentity?: CharacterVisualIdentity;
+}): Promise<{ avatarUrl: string; fullBodyUrl?: string; prompt: string }> {
   const res = await fetch(`${API_BASE_URL}/characters/generate-avatar`, {
     method: "POST",
     headers: {
@@ -410,10 +417,13 @@ export async function generateCharacterAvatar(req: {
   }
   const json = await res.json();
   const data = json?.data ?? json?.value ?? json;
-  if (!data || !data.avatarUrl) {
+  const avatarUrl = data?.avatarUrl || data?.imageUrl || data?.url;
+  const fullBodyUrl = data?.fullBodyUrl || data?.canonicalReferenceUrl || undefined;
+  const prompt = data?.prompt || data?.revisedPrompt || "";
+  if (!data || !avatarUrl) {
     throw new Error("Không nhận được ảnh đại diện từ AI.");
   }
-  return data;
+  return { avatarUrl, fullBodyUrl, prompt };
 }
 
 export async function generateSceneImage(req: {
@@ -423,6 +433,7 @@ export async function generateSceneImage(req: {
   characterPersonality?: string;
   messageContent: string;
   userMessageContent?: string;
+  referenceImageUrl?: string;
 }): Promise<{ imageUrl: string; prompt: string }> {
   const res = await fetch(`${API_BASE_URL}/chat/imagine-scene`, {
     method: "POST",
@@ -439,10 +450,11 @@ export async function generateSceneImage(req: {
   }
   const json = await res.json();
   const data = json?.data ?? json?.value ?? json;
-  if (!data || !data.avatarUrl) {
+  const imageUrl = data?.imageUrl || data?.avatarUrl || data?.url;
+  if (!data || !imageUrl) {
     throw new Error("Không nhận được hình ảnh minh họa từ AI.");
   }
-  return { imageUrl: data.avatarUrl, prompt: data.prompt };
+  return { imageUrl, prompt: data.prompt || "" };
 }
 
 export async function fetchCharacterMemories(characterId: string, limit: number = 30): Promise<CharacterMemory[]> {
@@ -460,5 +472,55 @@ export async function fetchCharacterMemories(characterId: string, limit: number 
     console.warn(`[API] Could not fetch memories for character ${characterId}:`, error);
     return [];
   }
+}
+
+export async function fetchUserProfile(userId: string): Promise<UserProfile> {
+  const res = await fetch(`${API_BASE_URL}/user-profile/${userId}`, {
+    headers: {
+      ...getAuthHeader(),
+    },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error("Không thể tải hồ sơ người dùng.");
+  }
+  const json = await res.json();
+  return json?.data || json?.value || json;
+}
+
+export async function updateUserProfile(userId: string, req: UpdateUserProfileRequest): Promise<UserProfile> {
+  const res = await fetch(`${API_BASE_URL}/user-profile/${userId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => null);
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Không thể cập nhật hồ sơ người dùng."));
+  }
+  const json = await res.json();
+  return json?.data || json?.value || json;
+}
+
+export async function proactiveReachout(req: { characterId: string; userId: string }): Promise<ProactiveReachoutResponse> {
+  const res = await fetch(`${API_BASE_URL}/chat/proactive-reachout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => null);
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Không thể kích hoạt tin nhắn làm quen từ nhân vật."));
+  }
+  const json = await res.json();
+  return json?.data || json?.value || json;
 }
 

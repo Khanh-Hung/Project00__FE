@@ -34,6 +34,37 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface UserProfile {
+  id: string;
+  userId: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  interests: string[];
+  personalityTraits: string[];
+  statusMessage?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface UpdateUserProfileRequest {
+  displayName: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  interests?: string[];
+  personalityTraits?: string[];
+  statusMessage?: string | null;
+}
+
+export enum WorldGenre {
+  Custom = 0,
+  MundaneSliceOfLife = 1,
+  HighFantasy = 2,
+  UrbanSupernatural = 3,
+  CyberpunkSciFi = 4,
+  Historical = 5,
+}
+
 export interface RelationshipMilestone {
   name: string;
   minScore: number;
@@ -82,14 +113,61 @@ export interface CharacterBlueprint {
   rules?: CharacterRules;
 }
 
+export interface CharacterVisualIdentity {
+  gender?: string;
+  face?: string;
+  hair?: string;
+  eyes?: string;
+  skin?: string;
+  body?: string;
+  ageAppearance?: string;
+  clothingStyle?: string;
+  accessories?: string;
+  visualTraits?: string;
+  canonicalReferenceUrl?: string;
+  fullBodyUrl?: string;
+}
+
+export interface CharacterVoiceProfile {
+  voiceId: string;
+  language?: string;
+  gender?: string;
+  ageRange?: string;
+  tone?: string;
+  speakingStyle?: string;
+  pace?: string;
+  pitch?: string;
+  description?: string;
+}
+
+export interface CreateLorebookEntryDto {
+  title: string;
+  content: string;
+  keywords: string[];
+  category: number;
+  isConstant?: boolean;
+  priority?: number;
+}
+
+export interface LorebookEntry {
+  id: string;
+  characterId: string;
+  title: string;
+  content: string;
+  keywords: string[];
+  category: string | number;
+  isConstant: boolean;
+  priority: number;
+}
+
 export interface Character {
   id: string;
   name: string;
   title: string;
   avatarUrl: string;
   personalityPrompt: string;
-  greeting: string;
-  category: string;
+  greeting?: string;
+  category?: string;
   tags: string[];
   isPublic: boolean;
   createdAt: string;
@@ -101,6 +179,12 @@ export interface Character {
   defaultMood?: string;
   customMilestones?: RelationshipMilestone[];
   blueprint?: CharacterBlueprint;
+  visualIdentity?: CharacterVisualIdentity;
+  voiceProfile?: CharacterVoiceProfile;
+  worldName?: string;
+  worldDescription?: string;
+  worldGenre?: WorldGenre | number;
+  customPhysicsRules?: string;
 }
 
 export interface CreateCharacterRequest {
@@ -108,14 +192,21 @@ export interface CreateCharacterRequest {
   title: string;
   avatarUrl: string;
   personalityPrompt: string;
-  greeting: string;
-  category: string;
+  greeting?: string;
+  category?: string;
   tags?: string[];
   isPublic?: boolean;
   defaultAffectionScore?: number;
   defaultMood?: string;
   customMilestones?: RelationshipMilestone[];
   blueprint?: CharacterBlueprint;
+  visualIdentity?: CharacterVisualIdentity;
+  voiceProfile?: CharacterVoiceProfile;
+  worldName?: string;
+  worldDescription?: string;
+  worldGenre?: WorldGenre | number;
+  customPhysicsRules?: string;
+  initialLorebookEntries?: CreateLorebookEntryDto[];
 }
 
 export interface UpdateCharacterRequest {
@@ -123,14 +214,20 @@ export interface UpdateCharacterRequest {
   title: string;
   avatarUrl: string;
   personalityPrompt: string;
-  greeting: string;
-  category: string;
+  greeting?: string;
+  category?: string;
   tags?: string[];
   isPublic?: boolean;
   defaultAffectionScore?: number;
   defaultMood?: string;
   customMilestones?: RelationshipMilestone[];
   blueprint?: CharacterBlueprint;
+  visualIdentity?: CharacterVisualIdentity;
+  voiceProfile?: CharacterVoiceProfile;
+  worldName?: string;
+  worldDescription?: string;
+  worldGenre?: WorldGenre | number;
+  customPhysicsRules?: string;
 }
 
 export interface GeneratedCharacterDto {
@@ -142,8 +239,15 @@ export interface GeneratedCharacterDto {
   tags: string[];
   defaultAffectionScore?: number;
   defaultMood?: string;
+  worldGenre?: WorldGenre | number;
+  worldName?: string;
+  worldDescription?: string;
+  customPhysicsRules?: string;
   customMilestones?: RelationshipMilestone[];
   blueprint?: CharacterBlueprint;
+  visualIdentity?: CharacterVisualIdentity;
+  voiceProfile?: CharacterVoiceProfile;
+  initialLorebookEntries?: CreateLorebookEntryDto[];
 }
 
 export enum MessageRole {
@@ -152,11 +256,23 @@ export enum MessageRole {
   System = 3,
 }
 
+export enum SessionStatus {
+  Active = 1,
+  WalkedOut = 2,
+  Closed = 3,
+}
+
 export interface ChatMessage {
   id: string;
   role: MessageRole;
   content: string;
   timestamp: string;
+}
+
+export interface RelationshipEvent {
+  eventKey: string;
+  context: string;
+  unlockedAt: string;
 }
 
 export interface ChatSession {
@@ -172,7 +288,13 @@ export interface ChatSession {
   characterCategory?: string;
   affectionScore: number;
   relationshipLevel: number;
+  relationshipStage?: string;
   currentMood?: string;
+  moodIntensity?: number;
+  unlockedEvents?: RelationshipEvent[];
+  status?: SessionStatus | string | number;
+  walkOutReason?: string | null;
+  walkedOutAt?: string | null;
 }
 
 export interface ChatSessionListItem {
@@ -187,6 +309,9 @@ export interface ChatSessionListItem {
   createdAt: string;
   affectionScore?: number;
   relationshipLevel?: number;
+  relationshipStage?: string;
+  status?: SessionStatus | string | number;
+  walkOutReason?: string | null;
 }
 
 export interface SendMessageResponse {
@@ -194,9 +319,30 @@ export interface SendMessageResponse {
   assistantMessage: ChatMessage;
   affectionScore: number;
   relationshipLevel: number;
+  relationshipStage?: string;
   currentMood: string;
+  moodIntensity?: number;
   affectionDelta: number;
   levelUp: boolean;
+  unlockedEvent?: RelationshipEvent | null;
+  hasWalkedOut?: boolean;
+  walkOutReason?: string | null;
+  sessionStatus?: SessionStatus | string | number;
+}
+
+export interface ProactiveReachoutRequest {
+  characterId: string;
+  userId: string;
+}
+
+export interface ProactiveReachoutResponse {
+  sessionId: string;
+  characterId: string;
+  characterName: string;
+  characterAvatar: string;
+  openingMessage: string;
+  matchReason: string;
+  createdAt: string;
 }
 
 export enum MemoryType {
@@ -222,4 +368,3 @@ export interface ApiResponse<T> {
   data: T;
   errors: string[];
 }
-
