@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Character, UpdateCharacterRequest } from "@/types";
-import { fetchCharacters, createCharacter, updateCharacter, deleteCharacter } from "@/lib/api";
+import { Character } from "@/types";
+import { fetchCharacters, updateCharacter, deleteCharacter } from "@/lib/api";
 import { Header } from "@/components/layout/Header";
 import { Avatar } from "@/components/ui/Avatar";
-import { CreateCharacterModal } from "@/components/characters/CreateCharacterModal";
-import { EditCharacterModal } from "@/components/characters/EditCharacterModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   Palette,
@@ -20,23 +18,13 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import { getWorldGenreMeta } from "@/lib/constants";
 import Link from "next/link";
-
-const CATEGORY_MAP: Record<string, string> = {
-  Companion: "Bạn đồng hành",
-  Anime: "Anime",
-  Fantasy: "Kỳ ảo",
-  RPG: "Nhập vai",
-  Assistant: "Trợ lý",
-  Mentor: "Cố vấn",
-};
 
 export default function StudioPage() {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
   const [characterToDelete, setCharacterToDelete] = useState<Character | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -55,12 +43,6 @@ export default function StudioPage() {
   useEffect(() => {
     loadCharacters();
   }, []);
-
-  const handleUpdateCharacter = async (characterId: string, req: UpdateCharacterRequest) => {
-    const updated = await updateCharacter(characterId, req);
-    setCharacters((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-    setEditingCharacter(null);
-  };
 
   const handleConfirmDelete = async () => {
     if (!characterToDelete) return;
@@ -85,7 +67,7 @@ export default function StudioPage() {
         avatarUrl: char.avatarUrl,
         category: char.category,
         personalityPrompt: char.personalityPrompt,
-        greeting: char.greeting,
+        greeting: "",
         tags: char.tags,
         isPublic: !char.isPublic,
         defaultAffectionScore: char.defaultAffectionScore,
@@ -100,8 +82,9 @@ export default function StudioPage() {
 
   const filteredCharacters = characters.filter((c) => {
     const matchName = c.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchCategory = c.category.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchName || matchCategory;
+    const matchTitle = c.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchTags = c.tags?.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchName || matchTitle || matchTags;
   });
 
   return (
@@ -114,7 +97,7 @@ export default function StudioPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#2c2e35] pb-6 mb-8">
             <div>
               <div className="flex items-center gap-2.5">
-                <Palette className="h-6 w-6 text-pink-400" />
+                <Palette className="h-6 w-6 text-zinc-300" />
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-100">
                   Studio Sáng Tạo
                 </h1>
@@ -144,13 +127,13 @@ export default function StudioPage() {
                 )}
               </div>
 
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
+              <Link
+                href="/studio/create"
                 className="flex items-center gap-1.5 rounded-xl bg-zinc-100 px-4 py-2 text-xs font-bold text-zinc-950 shadow-md shadow-white/5 hover:bg-white active:scale-95 transition-all whitespace-nowrap cursor-pointer"
               >
                 <Plus className="h-4 w-4" />
                 <span>Tạo Mới</span>
-              </button>
+              </Link>
             </div>
           </div>
 
@@ -185,13 +168,13 @@ export default function StudioPage() {
               <Sparkles className="h-10 w-10 text-zinc-500 mb-3" />
               <h3 className="text-sm font-semibold text-zinc-200">Chưa có nhân vật nào</h3>
               <p className="mt-1 text-xs text-zinc-400">Hãy nhấn nút "Tạo Mới" để sáng tạo nhân vật AI đầu tiên của bạn!</p>
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
+              <Link
+                href="/studio/create"
                 className="mt-4 flex items-center gap-1.5 rounded-xl bg-zinc-100 px-4 py-2 text-xs font-bold text-zinc-950 hover:bg-white transition-colors"
               >
                 <Plus className="h-4 w-4" />
                 <span>Tạo Nhân Vật Ngay</span>
-              </button>
+              </Link>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -210,13 +193,19 @@ export default function StudioPage() {
                           type="character"
                           className="!rounded-2xl border border-[#3b3d46]"
                         />
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-bold text-base text-zinc-100 truncate">{char.name}</h3>
-                            <span className="rounded-md bg-[#2b2c34] px-2 py-0.5 text-[10px] font-medium text-zinc-300 border border-[#3b3d46]">
-                              {CATEGORY_MAP[char.category] || char.category}
-                            </span>
-                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-bold text-base text-zinc-100 truncate">{char.name}</h3>
+                              {(() => {
+                                const g = getWorldGenreMeta(char.worldGenre);
+                                return (
+                                  <span className="rounded-md bg-[#2b2c34] px-2 py-0.5 text-[10px] font-medium text-zinc-300 border border-[#3b3d46] flex items-center gap-1">
+                                    <span>{g.emoji}</span>
+                                    <span>{g.label}</span>
+                                  </span>
+                                );
+                              })()}
+                            </div>
                           <p className="text-xs text-zinc-400 truncate mt-0.5">{char.title}</p>
                         </div>
                       </div>
@@ -235,9 +224,9 @@ export default function StudioPage() {
                       </button>
                     </div>
 
-                    {char.greeting && (
-                      <div className="mt-4 rounded-xl bg-[#191a1e] p-3 border border-[#2c2e35] text-xs text-zinc-400 italic line-clamp-2">
-                        "{char.greeting}"
+                    {char.personalityPrompt && (
+                      <div className="mt-4 rounded-xl bg-[#191a1e] p-3 border border-[#2c2e35] text-xs text-zinc-400 line-clamp-2">
+                        {char.personalityPrompt}
                       </div>
                     )}
                   </div>
@@ -255,13 +244,13 @@ export default function StudioPage() {
                         Xem hồ sơ
                       </Link>
 
-                      <button
-                        onClick={() => setEditingCharacter(char)}
+                      <Link
+                        href={`/studio/edit/${char.id}`}
                         className="flex items-center gap-1 rounded-xl border border-[#3b3d46] bg-[#2b2c34] px-3 py-1.5 text-xs font-semibold text-zinc-200 hover:bg-[#353740] hover:text-white transition-colors cursor-pointer"
                       >
                         <Edit2 className="h-3 w-3" />
                         <span>Sửa</span>
-                      </button>
+                      </Link>
 
                       <button
                         onClick={() => setCharacterToDelete(char)}
@@ -278,24 +267,6 @@ export default function StudioPage() {
           )}
         </main>
       </div>
-
-      {/* Create Modal */}
-      <CreateCharacterModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={async (req) => {
-          await createCharacter(req);
-          await loadCharacters();
-        }}
-      />
-
-      {/* Modern Edit Character Modal */}
-      <EditCharacterModal
-        character={editingCharacter}
-        isOpen={Boolean(editingCharacter)}
-        onClose={() => setEditingCharacter(null)}
-        onSubmit={handleUpdateCharacter}
-      />
 
       {/* Delete Character Confirmation Dialog */}
       <ConfirmDialog

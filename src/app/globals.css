@@ -43,7 +43,7 @@ input:active {
   color-scheme: dark !important;
 }
 
-/* Đảm bảo chữ gợi ý (Placeholder) luôn có màu xám mờ tinh tế, không bị đậm */
+/* Đảm bảo chữ gợi ý (Placeholder) nhỏ hơn 1 size, có màu xám mờ tinh tế */
 input::placeholder,
 textarea::placeholder,
 input::-webkit-input-placeholder,
@@ -51,6 +51,7 @@ textarea::-webkit-input-placeholder {
   color: #636570 !important;
   -webkit-text-fill-color: #636570 !important;
   opacity: 1 !important;
+  font-size: 0.85em !important;
 }
 
 /* Fix triệt để Chrome Autofill không bị đổi màu nền hay màu chữ khi click/focus */
@@ -76,21 +77,21 @@ input:-webkit-autofill:active {
 }
 
 *::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
+  background: transparent;
 }
 
 *::-webkit-scrollbar-track {
-  background: transparent;
-  margin: 8px 0; /* Cách 2 đầu trên/dưới 8px để không bao giờ bị cắt góc bo cong */
+  background: transparent !important;
 }
 
 *::-webkit-scrollbar-track-piece {
-  background: transparent;
+  background: transparent !important;
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #353740;
+  background-color: #353740;
   border-radius: 9999px;
   border: 1px solid transparent;
   background-clip: padding-box;
@@ -98,18 +99,24 @@ input:-webkit-autofill:active {
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: #525562;
-  background-clip: padding-box;
+  background-color: #525562;
 }
 
-/* Ẩn triệt để toàn bộ nút mũi tên và góc vuông trắng trên Windows */
+/* Ẩn triệt để 100% toàn bộ nút mũi tên và góc vuông trên Chromium/Windows */
+::-webkit-scrollbar-button,
 *::-webkit-scrollbar-button,
 *::-webkit-scrollbar-button:single-button,
+*::-webkit-scrollbar-button:start:decrement,
+*::-webkit-scrollbar-button:end:increment,
 *::-webkit-scrollbar-button:vertical:decrement,
-*::-webkit-scrollbar-button:vertical:increment {
+*::-webkit-scrollbar-button:vertical:increment,
+*::-webkit-scrollbar-button:horizontal:decrement,
+*::-webkit-scrollbar-button:horizontal:increment {
   display: none !important;
-  width: 0 !important;
-  height: 0 !important;
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+  border: none !important;
 }
 
 *::-webkit-scrollbar-corner {

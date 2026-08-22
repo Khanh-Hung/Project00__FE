@@ -102,7 +102,7 @@ export default function HistoryPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#2c2e35] pb-6 mb-8">
             <div>
               <div className="flex items-center gap-2.5">
-                <History className="h-6 w-6 text-emerald-400" />
+                <History className="h-6 w-6 text-zinc-300" />
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-100">
                   Lịch sử Trò chuyện
                 </h1>

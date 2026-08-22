@@ -14,6 +14,7 @@ import {
   PanelRightClose,
   Sparkles,
   Home,
+  ShieldAlert,
 } from "lucide-react";
 import { ChatMessage, ChatSession, ChatSessionListItem, MessageRole, Character } from "@/types";
 import {
@@ -24,6 +25,7 @@ import {
   rollbackChatMessage,
   fetchRoleplaySuggestions,
   fetchRecentSessions,
+  generateSceneImage,
 } from "@/lib/api";
 import { Avatar } from "@/components/ui/Avatar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -81,6 +83,8 @@ export default function ChatPage() {
   const [rollbackTarget, setRollbackTarget] = useState<{ id: string; index: number } | null>(null);
   const [isRollingBack, setIsRollingBack] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [sceneImageMap, setSceneImageMap] = useState<Record<string, string>>({});
+  const [imaginingMessageId, setImaginingMessageId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const theme = THEMES[currentTheme] || THEMES.cyan;
@@ -223,16 +227,23 @@ export default function ChatPage() {
           setTimeout(() => setLevelUpNotif(null), 4500);
         }
 
-        setSession((prev) =>
-          prev
-            ? {
-                ...prev,
-                affectionScore: response.affectionScore,
-                relationshipLevel: response.relationshipLevel,
-                currentMood: response.currentMood,
-              }
-            : null
-        );
+        setSession((prev) => {
+          if (!prev) return null;
+          const updatedEvents = response.unlockedEvent
+            ? [...(prev.unlockedEvents || []), response.unlockedEvent]
+            : prev.unlockedEvents;
+          return {
+            ...prev,
+            affectionScore: response.affectionScore,
+            relationshipLevel: response.relationshipLevel,
+            relationshipStage: response.relationshipStage,
+            currentMood: response.currentMood,
+            moodIntensity: response.moodIntensity,
+            unlockedEvents: updatedEvents,
+            status: response.hasWalkedOut || response.sessionStatus === 2 || String(response.sessionStatus).toLowerCase() === "walkedout" ? 2 : prev.status,
+            walkOutReason: response.walkOutReason || prev.walkOutReason,
+          };
+        });
       }
     } catch (err: any) {
       console.error("Error sending message", err);
@@ -353,6 +364,29 @@ export default function ChatPage() {
       alert(err.message || "Không thể tạo lại phản hồi. Vui lòng thử lại!");
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleImagineScene = async (messageId: string, messageContent: string) => {
+    if (imaginingMessageId || !session) return;
+    try {
+      setImaginingMessageId(messageId);
+      const res = await generateSceneImage({
+        sessionId: session.id,
+        characterName: session.characterName,
+        characterTitle: session.characterTitle || undefined,
+        characterPersonality: session.characterPersonality || undefined,
+        messageContent: messageContent,
+        referenceImageUrl: session.characterAvatar || undefined,
+      });
+      if (res?.imageUrl) {
+        setSceneImageMap((prev) => ({ ...prev, [messageId]: res.imageUrl }));
+      }
+    } catch (err: any) {
+      console.error("Error generating scene image:", err);
+      alert(err.message || "Không thể vẽ minh họa khoảnh khắc lúc này. Vui lòng thử lại!");
+    } finally {
+      setImaginingMessageId(null);
     }
   };
 
@@ -622,11 +656,14 @@ export default function ChatPage() {
                   isSending={isSending}
                   isRollingBack={isRollingBack}
                   isLoadingSuggestions={isLoadingSuggestions}
+                  isImagining={imaginingMessageId === msg.id}
+                  sceneImageUrl={sceneImageMap[msg.id]}
                   onCopy={handleCopyMessage}
                   onRollback={(id, idx) => setRollbackTarget({ id, index: idx })}
                   onFetchSuggestions={handleFetchSuggestions}
                   onContinueStory={handleContinueStory}
                   onRegenerate={handleRegenerateLastResponse}
+                  onImagineScene={handleImagineScene}
                 />
               );
             })}
@@ -696,49 +733,73 @@ export default function ChatPage() {
         {/* Input Bar */}
         <footer className="border-t border-[#23242a] bg-[#141518]/95 px-3 py-2.5 backdrop-blur-xl shrink-0">
           <div className="mx-auto max-w-3xl">
-            <form
-              onSubmit={handleSendMessage}
-              className="group relative flex items-end gap-2 rounded-2xl border border-[#2e3037] bg-[#1d1e23] p-1.5 pl-3.5 shadow-md transition-all focus-within:border-[#4d505c] focus-within:bg-[#22242a]"
-            >
-              <textarea
-                rows={1}
-                value={inputMessage}
-                onChange={(e) => {
-                  setInputMessage(e.target.value);
-                  e.target.style.height = "auto";
-                  e.target.style.height = `${Math.min(e.target.scrollHeight, 140)}px`;
-                }}
-                onKeyDown={handleKeyDown}
-                placeholder={`Nhập tin nhắn hoặc *hành động* đến ${session?.characterName}...`}
-                className="max-h-36 min-h-[26px] flex-1 resize-none bg-transparent py-1 px-0 text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-0 leading-relaxed custom-scrollbar"
-              />
-
-              <button
-                type="submit"
-                disabled={!inputMessage.trim() || isSending}
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-150 mb-0.5 ${
-                  inputMessage.trim() && !isSending
-                    ? "bg-zinc-100 text-zinc-950 font-bold shadow-sm hover:bg-white active:scale-95 cursor-pointer"
-                    : "bg-[#28292f] text-zinc-600 cursor-not-allowed opacity-40"
-                }`}
-                title="Gửi (Enter)"
-              >
-                {isSending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-300" />
-                ) : (
-                  <Send className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+            {session?.status === 2 || (session?.status as any) === "WalkedOut" || (session?.status as any) === "2" ? (
+              <div className="p-4 rounded-2xl bg-red-950/30 border border-red-500/30 text-center space-y-2.5 animate-in fade-in">
+                <div className="flex items-center justify-center gap-2 text-xs sm:text-sm font-bold text-red-300">
+                  <ShieldAlert className="h-4 w-4 text-red-400" />
+                  <span>{session?.characterName} đã rời khỏi và đóng cuộc trò chuyện này</span>
+                </div>
+                {session?.walkOutReason && (
+                  <p className="text-xs text-red-200/90 italic bg-[#171114] p-2.5 rounded-xl border border-red-500/20 max-w-lg mx-auto">
+                    "{session.walkOutReason}"
+                  </p>
                 )}
-              </button>
-            </form>
-            <div className="mt-1 flex items-center justify-between px-2 text-[10px] text-zinc-500">
-              <span>
-                Hành động nhập vai đặt trong dấu{" "}
-                <span className="text-zinc-300 font-mono">*sao*</span>
-              </span>
-              <span className="hidden sm:inline text-zinc-500">
-                Enter gửi • Shift+Enter xuống dòng
-              </span>
-            </div>
+                <button
+                  type="button"
+                  onClick={handleCreateNewSession}
+                  disabled={isCreatingNew}
+                  className="px-5 py-2 rounded-xl bg-zinc-100 text-zinc-950 text-xs font-bold hover:bg-white active:scale-95 transition-all cursor-pointer shadow-md"
+                >
+                  {isCreatingNew ? "Đang Khởi Tạo..." : "Bắt Đầu Cuộc Trò Chuyện Mới"}
+                </button>
+              </div>
+            ) : (
+              <>
+                <form
+                  onSubmit={handleSendMessage}
+                  className="group relative flex items-end gap-2 rounded-2xl border border-[#2e3037] bg-[#1d1e23] p-1.5 pl-3.5 shadow-md transition-all focus-within:border-[#4d505c] focus-within:bg-[#22242a]"
+                >
+                  <textarea
+                    rows={1}
+                    value={inputMessage}
+                    onChange={(e) => {
+                      setInputMessage(e.target.value);
+                      e.target.style.height = "auto";
+                      e.target.style.height = `${Math.min(e.target.scrollHeight, 140)}px`;
+                    }}
+                    onKeyDown={handleKeyDown}
+                    placeholder={`Nhập tin nhắn hoặc *hành động* đến ${session?.characterName}...`}
+                    className="max-h-36 min-h-[26px] flex-1 resize-none bg-transparent py-1 px-0 text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-0 leading-relaxed custom-scrollbar"
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={!inputMessage.trim() || isSending}
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-150 mb-0.5 ${
+                      inputMessage.trim() && !isSending
+                        ? "bg-zinc-100 text-zinc-950 font-bold shadow-sm hover:bg-white active:scale-95 cursor-pointer"
+                        : "bg-[#28292f] text-zinc-600 cursor-not-allowed opacity-40"
+                    }`}
+                    title="Gửi (Enter)"
+                  >
+                    {isSending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-300" />
+                    ) : (
+                      <Send className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                    )}
+                  </button>
+                </form>
+                <div className="mt-1 flex items-center justify-between px-2 text-[10px] text-zinc-500">
+                  <span>
+                    Hành động nhập vai đặt trong dấu{" "}
+                    <span className="text-zinc-300 font-mono">*sao*</span>
+                  </span>
+                  <span className="hidden sm:inline text-zinc-500">
+                    Enter gửi • Shift+Enter xuống dòng
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </footer>
       </div>
