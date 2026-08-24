@@ -143,25 +143,34 @@ export default function ChatPage() {
         const initialImageMap: Record<string, TurnImageState> = {};
         data.messages?.forEach((m) => {
           const turnId = m.turnId || m.id;
-          if (m.sceneImageUrl) {
+          const status = m.sceneImageStatus;
+
+          if (
+            status === "processing" ||
+            status === "pending" ||
+            status === "queued"
+          ) {
+            // Prioritize active in-flight generation/regeneration!
+            initialImageMap[turnId] = {
+              status: status,
+              imageUrl: m.sceneImageUrl || undefined,
+              generationRequestId: m.generationRequestId || undefined,
+            };
+            if (m.generationRequestId) {
+              startPolling(turnId, m.generationRequestId);
+            }
+          } else if (m.sceneImageUrl) {
             initialImageMap[turnId] = {
               status: "completed",
               imageUrl: m.sceneImageUrl,
               generationRequestId: m.generationRequestId || undefined,
             };
-          } else if (m.sceneImageStatus && m.sceneImageStatus !== "completed") {
+          } else if (status === "failed") {
             initialImageMap[turnId] = {
-              status: m.sceneImageStatus as any,
+              status: "failed",
+              imageUrl: m.sceneImageUrl || undefined,
               generationRequestId: m.generationRequestId || undefined,
             };
-            if (
-              m.generationRequestId &&
-              (m.sceneImageStatus === "processing" ||
-                m.sceneImageStatus === "queued" ||
-                m.sceneImageStatus === "pending")
-            ) {
-              startPolling(turnId, m.generationRequestId);
-            }
           }
         });
         setTurnImageStateMap(initialImageMap);

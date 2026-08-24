@@ -289,34 +289,55 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
 
           {/* 2. Completed Scene Illustration Image */}
           {!isGeneratingThisTurn && sceneImageUrl && (
-            <div className="mt-3 overflow-hidden rounded-2xl border border-[#3b3d46] bg-[#121316] shadow-xl group relative">
-              <img
-                src={sceneImageUrl}
-                alt="Minh họa khoảnh khắc"
-                className="w-full h-auto max-h-[420px] object-cover transition-transform duration-300 group-hover:scale-102"
-              />
-              <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                {onRegenerateScene && effectiveTurnId && (
-                  <button
-                    type="button"
-                    onClick={() => onRegenerateScene(effectiveTurnId)}
-                    disabled={isSending || isGeneratingThisTurn}
-                    className="rounded-lg bg-black/75 hover:bg-black/90 backdrop-blur-xs px-2.5 py-1 text-[11px] text-zinc-200 font-semibold flex items-center gap-1.5 shadow-md cursor-pointer transition-all active:scale-95 disabled:opacity-50"
-                    title="Vẽ lại khoảnh khắc này với snapshot cố định"
-                  >
-                    <RotateCcw className="h-3 w-3 text-amber-400" />
-                    <span>Vẽ lại</span>
-                  </button>
-                )}
+            <div className="mt-3 space-y-2">
+              <div className="overflow-hidden rounded-2xl border border-[#3b3d46] bg-[#121316] shadow-xl group relative">
+                <img
+                  src={sceneImageUrl}
+                  alt="Minh họa khoảnh khắc"
+                  className="w-full h-auto max-h-[420px] object-cover transition-transform duration-300 group-hover:scale-102"
+                />
+                <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {onRegenerateScene && effectiveTurnId && (
+                    <button
+                      type="button"
+                      onClick={() => onRegenerateScene(effectiveTurnId)}
+                      disabled={isSending || isGeneratingThisTurn}
+                      className="rounded-lg bg-black/75 hover:bg-black/90 backdrop-blur-xs px-2.5 py-1 text-[11px] text-zinc-200 font-semibold flex items-center gap-1.5 shadow-md cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                      title="Vẽ lại khoảnh khắc này với snapshot cố định"
+                    >
+                      <RotateCcw className="h-3 w-3 text-amber-400" />
+                      <span>Vẽ lại</span>
+                    </button>
+                  )}
+                </div>
+                <div className="absolute bottom-2 right-2 rounded-lg bg-black/70 backdrop-blur-xs px-2.5 py-1 text-[10px] text-zinc-200 font-semibold flex items-center gap-1.5 shadow-md">
+                  <Sparkles className="h-3 w-3 text-purple-400" />
+                  <span>Khoảnh khắc AI</span>
+                </div>
               </div>
-              <div className="absolute bottom-2 right-2 rounded-lg bg-black/70 backdrop-blur-xs px-2.5 py-1 text-[10px] text-zinc-200 font-semibold flex items-center gap-1.5 shadow-md">
-                <Sparkles className="h-3 w-3 text-purple-400" />
-                <span>Khoảnh khắc AI</span>
-              </div>
+
+              {/* Notice if a regeneration attempt failed */}
+              {(sceneImageStatus === "failed" || sceneImageStatus === "timeout") && (
+                <div className="overflow-hidden rounded-xl border border-red-500/30 bg-red-950/20 px-3 py-2 text-xs flex items-center justify-between gap-2">
+                  <span className="text-red-300">
+                    {sceneImageFailureReason || "Lần vẽ lại gần nhất không thành công (đã giữ lại bản vẽ trước)."}
+                  </span>
+                  {onImagineScene && effectiveTurnId && (
+                    <button
+                      type="button"
+                      onClick={() => onImagineScene(effectiveTurnId)}
+                      disabled={isSending || isGeneratingThisTurn}
+                      className="shrink-0 rounded bg-red-900/50 hover:bg-red-900/80 px-2 py-0.5 text-[10px] font-semibold text-red-200"
+                    >
+                      Thử lại
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
-          {/* 3. Failed Scene Generation */}
+          {/* 3. Failed Scene Generation (when no prior image exists) */}
           {!isGeneratingThisTurn && !sceneImageUrl && sceneImageStatus === "failed" && (
             <div className="mt-3 overflow-hidden rounded-2xl border border-red-500/30 bg-red-950/20 p-3 shadow-md">
               <div className="flex items-center justify-between gap-2">
