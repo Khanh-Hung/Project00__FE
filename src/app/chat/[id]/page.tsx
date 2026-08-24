@@ -579,6 +579,25 @@ export default function ChatPage() {
     }
   };
 
+  const handleCancelTurnImage = (turnId: string) => {
+    if (activePollingRef.current[turnId]) {
+      clearTimeout(activePollingRef.current[turnId]);
+      delete activePollingRef.current[turnId];
+    }
+    setTurnImageStateMap((prev) => {
+      const current = prev[turnId];
+      return {
+        ...prev,
+        [turnId]: {
+          status: "cancelled",
+          imageUrl: current?.imageUrl,
+          failureReason: "Yêu cầu vẽ ảnh đã được hủy.",
+          generationRequestId: current?.generationRequestId,
+        },
+      };
+    });
+  };
+
   const handleCreateNewSession = async () => {
     if (!session?.characterId) return;
     try {
@@ -863,6 +882,7 @@ export default function ChatPage() {
                   onRegenerate={handleRegenerateLastResponse}
                   onImagineScene={handleTriggerTurnImage}
                   onRegenerateScene={handleTriggerTurnImage}
+                  onCancelScene={handleCancelTurnImage}
                 />
               );
             })}

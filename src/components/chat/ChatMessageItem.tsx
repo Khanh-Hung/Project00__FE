@@ -21,6 +21,7 @@ import {
   Volume2,
   ShieldAlert,
   Clock,
+  X,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { ChatMessage, ChatSession } from "@/types";
@@ -52,6 +53,7 @@ interface ChatMessageItemProps {
   onRegenerate: () => void;
   onImagineScene?: (turnId: string) => void;
   onRegenerateScene?: (turnId: string) => void;
+  onCancelScene?: (turnId: string) => void;
 }
 
 export function formatSceneImageError(rawReason?: string, status?: string): string {
@@ -257,6 +259,7 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
   onRegenerate,
   onImagineScene,
   onRegenerateScene,
+  onCancelScene,
 }) => {
   const effectiveTurnId = msg.turnId || undefined;
   const isGeneratingThisTurn =
@@ -315,24 +318,34 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
 
           {/* 1. In-Flight Initial Generation (when no prior image exists) */}
           {isGeneratingThisTurn && !sceneImageUrl && (
-            <div className="mt-3 overflow-hidden rounded-2xl border border-purple-500/25 bg-gradient-to-b from-purple-950/25 via-[#13121c] to-[#0c0c12] p-6 shadow-xl relative flex flex-col items-center justify-center text-center gap-3 min-h-[150px]">
+            <div className="mt-3 overflow-hidden rounded-2xl border border-[#383a45] bg-[#16171b] p-5 shadow-lg relative flex flex-col items-center justify-center text-center gap-3 min-h-[145px]">
               <div className="relative flex items-center justify-center">
-                <div className="absolute h-10 w-10 rounded-full bg-purple-500/20 animate-ping" />
-                <div className="relative h-10 w-10 rounded-full bg-purple-950/80 border border-purple-500/40 flex items-center justify-center shadow-md">
-                  <Sparkles className="h-5 w-5 text-purple-300 animate-pulse" />
+                <div className="h-9 w-9 rounded-xl bg-[#252730] border border-[#3b3d46] flex items-center justify-center shadow-xs">
+                  <Loader2 className="h-4.5 w-4.5 text-zinc-300 animate-spin" />
                 </div>
               </div>
-              <div className="space-y-1">
-                <p className="text-xs font-semibold text-purple-200">
+              <div className="space-y-0.5">
+                <p className="text-xs font-semibold text-zinc-200">
                   {sceneImageStatus === "queued" ? "Đang chuẩn bị khung cảnh..." : "Đang phác họa khoảnh khắc..."}
                 </p>
                 <p className="text-[11px] text-zinc-400">
                   AI đang tái hiện cảm xúc và bối cảnh của nhân vật
                 </p>
               </div>
-              <div className="w-28 h-1 rounded-full bg-purple-950/80 overflow-hidden border border-purple-500/20 mt-1">
-                <div className="h-full w-full bg-gradient-to-r from-purple-500 via-pink-400 to-purple-500 animate-pulse" />
+              <div className="w-32 h-1 rounded-full bg-[#252730] overflow-hidden border border-[#31333a]">
+                <div className="h-full w-full bg-gradient-to-r from-zinc-500 via-zinc-300 to-zinc-500 animate-pulse" />
               </div>
+
+              {onCancelScene && effectiveTurnId && (
+                <button
+                  type="button"
+                  onClick={() => onCancelScene(effectiveTurnId)}
+                  className="mt-0.5 flex items-center gap-1.5 text-[11px] font-medium text-zinc-400 hover:text-zinc-200 bg-[#252730]/80 hover:bg-[#2c2f3a] border border-[#383a45] rounded-lg px-2.5 py-1 transition-all cursor-pointer active:scale-95 shadow-xs"
+                >
+                  <X className="h-3 w-3 text-zinc-400" />
+                  <span>Hủy yêu cầu</span>
+                </button>
+              )}
             </div>
           )}
 
@@ -348,11 +361,21 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
 
                 {/* Regeneration In-Flight Overlay */}
                 {isGeneratingThisTurn && (
-                  <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center gap-2 p-4 z-10">
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-950/90 border border-purple-500/40 shadow-lg text-purple-200 text-xs font-medium animate-pulse">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-purple-400" />
+                  <div className="absolute inset-0 bg-black/65 backdrop-blur-xs flex flex-col items-center justify-center gap-2.5 p-4 z-10">
+                    <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#18191e]/90 border border-[#383a45] shadow-lg text-zinc-200 text-xs font-medium">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-300" />
                       <span>{sceneImageStatus === "queued" ? "Đang chuẩn bị bản vẽ mới..." : "Đang phác họa bản vẽ mới..."}</span>
                     </div>
+                    {onCancelScene && effectiveTurnId && (
+                      <button
+                        type="button"
+                        onClick={() => onCancelScene(effectiveTurnId)}
+                        className="flex items-center gap-1 text-[11px] font-medium text-zinc-300 hover:text-white bg-[#252730]/90 hover:bg-[#2c2f3a] border border-[#383a45] rounded-lg px-2.5 py-1 transition-all cursor-pointer active:scale-95 shadow-md"
+                      >
+                        <X className="h-3 w-3 text-zinc-400" />
+                        <span>Hủy vẽ lại</span>
+                      </button>
+                    )}
                   </div>
                 )}
 
