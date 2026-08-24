@@ -26,6 +26,9 @@ import {
   fetchRoleplaySuggestions,
   fetchRecentSessions,
   generateSceneImage,
+  triggerTurnSceneImage,
+  getSceneImageStatus,
+  fetchTurnSceneImages,
 } from "@/lib/api";
 import { Avatar } from "@/components/ui/Avatar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -44,6 +47,13 @@ import { ChatMessageItem } from "@/components/chat/ChatMessageItem";
 import { ThemePicker } from "@/components/chat/ThemePicker";
 import { AffectionModal } from "@/components/chat/AffectionModal";
 import { ChatSkeleton } from "@/components/chat/ChatSkeleton";
+
+interface TurnImageState {
+  status: "idle" | "queued" | "pending" | "processing" | "completed" | "failed";
+  imageUrl?: string;
+  generationRequestId?: string;
+  failureReason?: string;
+}
 
 export default function ChatPage() {
   const { user, isAuthenticated, isLoading: authLoading, openAuthModal } = useAuth();
@@ -83,8 +93,8 @@ export default function ChatPage() {
   const [rollbackTarget, setRollbackTarget] = useState<{ id: string; index: number } | null>(null);
   const [isRollingBack, setIsRollingBack] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [sceneImageMap, setSceneImageMap] = useState<Record<string, string>>({});
-  const [imaginingMessageId, setImaginingMessageId] = useState<string | null>(null);
+  const [turnImageStateMap, setTurnImageStateMap] = useState<Record<string, TurnImageState>>({});
+  const activePollingRef = useRef<Record<string, NodeJS.Timeout>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const theme = THEMES[currentTheme] || THEMES.cyan;
@@ -130,6 +140,32 @@ export default function ChatPage() {
         if (typeof data.affectionScore === "number") {
           setAffectionScore(data.affectionScore);
         }
+
+        const initialImageMap: Record<string, TurnImageState> = {};
+        data.messages?.forEach((m) => {
+          const turnId = m.turnId || m.id;
+          if (m.sceneImageUrl) {
+            initialImageMap[turnId] = {
+              status: "completed",
+              imageUrl: m.sceneImageUrl,
+              generationRequestId: m.generationRequestId || undefined,
+            };
+          } else if (m.sceneImageStatus && m.sceneImageStatus !== "completed") {
+            initialImageMap[turnId] = {
+              status: m.sceneImageStatus as any,
+              generationRequestId: m.generationRequestId || undefined,
+            };
+            if (
+              m.generationRequestId &&
+              (m.sceneImageStatus === "processing" ||
+                m.sceneImageStatus === "queued" ||
+                m.sceneImageStatus === "pending")
+            ) {
+              startPolling(turnId, m.generationRequestId);
+            }
+          }
+        });
+        setTurnImageStateMap(initialImageMap);
 
         if (data.characterId) {
           fetchCharacterById(data.characterId)
@@ -211,10 +247,14 @@ export default function ChatPage() {
 
     try {
       const response = await sendChatMessage(sessionId, userText);
+      const assistantMsg = {
+        ...response.assistantMessage,
+        turnId: response.turnId || response.assistantMessage.turnId || response.assistantMessage.id,
+      };
       setMessages((prev) => [
         ...prev.filter((m) => m.id !== tempUserMsg.id),
         response.userMessage,
-        response.assistantMessage,
+        assistantMsg,
       ]);
 
       if (typeof response.affectionScore === "number") {
@@ -291,10 +331,14 @@ export default function ChatPage() {
 
     try {
       const response = await sendChatMessage(sessionId, prompt);
+      const assistantMsg = {
+        ...response.assistantMessage,
+        turnId: response.turnId || response.assistantMessage.turnId || response.assistantMessage.id,
+      };
       setMessages((prev) => [
         ...prev.filter((m) => m.id !== tempUserMsg.id),
         response.userMessage,
-        response.assistantMessage,
+        assistantMsg,
       ]);
 
       if (typeof response.affectionScore === "number") {
@@ -345,6 +389,10 @@ export default function ChatPage() {
 
     try {
       const response = await sendChatMessage(sessionId, lastUserText);
+      const assistantMsg = {
+        ...response.assistantMessage,
+        turnId: response.turnId || response.assistantMessage.turnId || response.assistantMessage.id,
+      };
       setMessages((prev) => {
         const copy = [...prev];
         for (let i = copy.length - 1; i >= 0; i--) {
@@ -357,7 +405,7 @@ export default function ChatPage() {
             break;
           }
         }
-        return [...copy, response.assistantMessage];
+        return [...copy, assistantMsg];
       });
     } catch (err: any) {
       console.error("Error regenerating response", err);
@@ -367,26 +415,127 @@ export default function ChatPage() {
     }
   };
 
-  const handleImagineScene = async (messageId: string, messageContent: string) => {
-    if (imaginingMessageId || !session) return;
+  // Cleanup active polling intervals when switching sessions or unmounting
+  useEffect(() => {
+    return () => {
+      Object.values(activePollingRef.current).forEach((interval) => clearInterval(interval));
+      activePollingRef.current = {};
+    };
+  }, [sessionId]);
+
+  const startPolling = (turnId: string, generationRequestId: string) => {
+    if (activePollingRef.current[turnId]) {
+      clearInterval(activePollingRef.current[turnId]);
+    }
+
+    let iterations = 0;
+    const maxIterations = 120; // 3 minutes max
+
+    const interval = setInterval(async () => {
+      iterations++;
+      if (iterations > maxIterations) {
+        clearInterval(interval);
+        delete activePollingRef.current[turnId];
+        setTurnImageStateMap((prev) => ({
+          ...prev,
+          [turnId]: {
+            status: "failed",
+            failureReason: "Quá thời gian tạo ảnh. Vui lòng thử lại!",
+            generationRequestId,
+          },
+        }));
+        return;
+      }
+
+      try {
+        const statusRes = await getSceneImageStatus(generationRequestId);
+        if (statusRes.status === "completed" && statusRes.imageUrl) {
+          clearInterval(interval);
+          delete activePollingRef.current[turnId];
+          setTurnImageStateMap((prev) => ({
+            ...prev,
+            [turnId]: {
+              status: "completed",
+              imageUrl: statusRes.imageUrl || undefined,
+              generationRequestId,
+            },
+          }));
+          setMessages((prev) =>
+            prev.map((m) => {
+              const mTurnId = m.turnId || m.id;
+              if (mTurnId === turnId) {
+                return {
+                  ...m,
+                  sceneImageUrl: statusRes.imageUrl,
+                  sceneImageStatus: "completed",
+                  generationRequestId,
+                };
+              }
+              return m;
+            })
+          );
+        } else if (statusRes.status === "failed") {
+          clearInterval(interval);
+          delete activePollingRef.current[turnId];
+          setTurnImageStateMap((prev) => ({
+            ...prev,
+            [turnId]: {
+              status: "failed",
+              failureReason: statusRes.failureReason || "Không thể tạo ảnh cho khoảnh khắc này.",
+              generationRequestId,
+            },
+          }));
+        } else {
+          setTurnImageStateMap((prev) => ({
+            ...prev,
+            [turnId]: {
+              status: statusRes.status as any,
+              generationRequestId,
+            },
+          }));
+        }
+      } catch (err) {
+        console.warn("[Polling] Error checking scene image status:", err);
+      }
+    }, 1500);
+
+    activePollingRef.current[turnId] = interval;
+  };
+
+  const handleTriggerTurnImage = async (turnId: string) => {
+    if (!sessionId) return;
+    const currentState = turnImageStateMap[turnId];
+    if (
+      currentState?.status === "queued" ||
+      currentState?.status === "processing" ||
+      currentState?.status === "pending"
+    ) {
+      return; // double-click protection
+    }
+
+    setTurnImageStateMap((prev) => ({
+      ...prev,
+      [turnId]: { status: "queued" },
+    }));
+
     try {
-      setImaginingMessageId(messageId);
-      const res = await generateSceneImage({
-        sessionId: session.id,
-        characterName: session.characterName,
-        characterTitle: session.characterTitle || undefined,
-        characterPersonality: session.characterPersonality || undefined,
-        messageContent: messageContent,
-        referenceImageUrl: session.characterAvatar || undefined,
-      });
-      if (res?.imageUrl) {
-        setSceneImageMap((prev) => ({ ...prev, [messageId]: res.imageUrl }));
+      const triggerRes = await triggerTurnSceneImage(sessionId, turnId);
+      if (triggerRes.generationRequestId) {
+        setTurnImageStateMap((prev) => ({
+          ...prev,
+          [turnId]: { status: "queued", generationRequestId: triggerRes.generationRequestId },
+        }));
+        startPolling(turnId, triggerRes.generationRequestId);
       }
     } catch (err: any) {
-      console.error("Error generating scene image:", err);
-      alert(err.message || "Không thể vẽ minh họa khoảnh khắc lúc này. Vui lòng thử lại!");
-    } finally {
-      setImaginingMessageId(null);
+      console.error("Error triggering scene image generation:", err);
+      setTurnImageStateMap((prev) => ({
+        ...prev,
+        [turnId]: {
+          status: "failed",
+          failureReason: err.message || "Không thể kích hoạt vẽ ảnh.",
+        },
+      }));
     }
   };
 
@@ -639,6 +788,14 @@ export default function ChatPage() {
               const isOpeningMessage = index === 0 && !isUser;
               const isLatestAI = !isUser && index === lastAIMessageIndex;
 
+              const effectiveTurnId = msg.turnId || msg.id;
+              const turnImgState = turnImageStateMap[effectiveTurnId];
+              const itemSceneImageUrl = turnImgState?.imageUrl || msg.sceneImageUrl;
+              const itemSceneImageStatus =
+                turnImgState?.status ||
+                (msg.sceneImageUrl ? "completed" : (msg.sceneImageStatus as any) || "idle");
+              const itemFailureReason = turnImgState?.failureReason;
+
               return (
                 <ChatMessageItem
                   key={msg.id || index}
@@ -656,14 +813,16 @@ export default function ChatPage() {
                   isSending={isSending}
                   isRollingBack={isRollingBack}
                   isLoadingSuggestions={isLoadingSuggestions}
-                  isImagining={imaginingMessageId === msg.id}
-                  sceneImageUrl={sceneImageMap[msg.id]}
+                  sceneImageUrl={itemSceneImageUrl || undefined}
+                  sceneImageStatus={itemSceneImageStatus}
+                  sceneImageFailureReason={itemFailureReason}
                   onCopy={handleCopyMessage}
                   onRollback={(id, idx) => setRollbackTarget({ id, index: idx })}
                   onFetchSuggestions={handleFetchSuggestions}
                   onContinueStory={handleContinueStory}
                   onRegenerate={handleRegenerateLastResponse}
-                  onImagineScene={handleImagineScene}
+                  onImagineScene={handleTriggerTurnImage}
+                  onRegenerateScene={handleTriggerTurnImage}
                 />
               );
             })}

@@ -267,6 +267,42 @@ export interface ChatMessage {
   role: MessageRole;
   content: string;
   timestamp: string;
+  turnId?: string | null;
+  sceneImageUrl?: string | null;
+  sceneImageStatus?: "queued" | "pending" | "processing" | "completed" | "failed" | null;
+  generationRequestId?: string | null;
+}
+
+export interface TriggerSceneImageResponse {
+  generationRequestId: string;
+  turnId: string;
+  status: string;
+}
+
+export interface SceneImageStatusResponse {
+  generationRequestId: string;
+  turnId: string;
+  sessionId: string;
+  status: "queued" | "pending" | "processing" | "completed" | "failed" | "cancelled" | string;
+  imageUrl?: string | null;
+  failureReason?: string | null;
+  isRetryable?: boolean | null;
+  sceneRevision?: number | null;
+  prompt?: string | null;
+  createdAt?: string | null;
+}
+
+export interface SceneImageDto {
+  id: string;
+  sessionId: string;
+  characterId: string;
+  turnId: string;
+  sceneRevision: number;
+  generationRequestId: string;
+  imageUrl: string;
+  prompt: string;
+  isCurrent: boolean;
+  createdAt: string;
 }
 
 export interface RelationshipEvent {
@@ -328,6 +364,7 @@ export interface SendMessageResponse {
   hasWalkedOut?: boolean;
   walkOutReason?: string | null;
   sessionStatus?: SessionStatus | string | number;
+  turnId?: string | null;
 }
 
 export interface ProactiveReachoutRequest {

@@ -19,6 +19,7 @@ import {
   Wand2,
   Swords,
   Volume2,
+  ShieldAlert,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { ChatMessage, ChatSession } from "@/types";
@@ -41,12 +42,15 @@ interface ChatMessageItemProps {
   isLoadingSuggestions: boolean;
   isImagining?: boolean;
   sceneImageUrl?: string;
+  sceneImageStatus?: "idle" | "queued" | "pending" | "processing" | "completed" | "failed";
+  sceneImageFailureReason?: string;
   onCopy: (id: string, text: string) => void;
   onRollback: (id: string, index: number) => void;
   onFetchSuggestions: () => void;
   onContinueStory: () => void;
   onRegenerate: () => void;
-  onImagineScene?: (id: string, content: string) => void;
+  onImagineScene?: (turnId: string) => void;
+  onRegenerateScene?: (turnId: string) => void;
 }
 
 export const getActionMeta = (actionText: string, colorClass: string) => {
@@ -200,13 +204,23 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
   isLoadingSuggestions,
   isImagining = false,
   sceneImageUrl,
+  sceneImageStatus = "idle",
+  sceneImageFailureReason,
   onCopy,
   onRollback,
   onFetchSuggestions,
   onContinueStory,
   onRegenerate,
   onImagineScene,
+  onRegenerateScene,
 }) => {
+  const effectiveTurnId = msg.turnId || msg.id;
+  const isGeneratingThisTurn =
+    isImagining ||
+    sceneImageStatus === "queued" ||
+    sceneImageStatus === "pending" ||
+    sceneImageStatus === "processing";
+
   return (
     <div
       className={`flex w-full ${
@@ -255,17 +269,72 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
 
           <div>{formatMessageContent(msg.content, theme)}</div>
 
-          {/* Generated Scene Illustration Image */}
-          {sceneImageUrl && (
+          {/* 1. In-Flight Image Generation (Queued / Pending / Processing) */}
+          {isGeneratingThisTurn && (
+            <div className="mt-3 overflow-hidden rounded-2xl border border-purple-500/30 bg-[#16141f]/90 p-4 shadow-xl relative animate-pulse">
+              <div className="flex items-center gap-3">
+                <Loader2 className="h-5 w-5 animate-spin text-purple-400 shrink-0" />
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs font-semibold text-purple-200">
+                    {sceneImageStatus === "queued" ? "Đang xếp hàng tạo ảnh..." : "Đang phác họa khoảnh khắc..."}
+                  </p>
+                  <p className="text-[11px] text-zinc-400 truncate">
+                    ComfyUI đang tái hiện bối cảnh nhân vật...
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 2. Completed Scene Illustration Image */}
+          {!isGeneratingThisTurn && sceneImageUrl && (
             <div className="mt-3 overflow-hidden rounded-2xl border border-[#3b3d46] bg-[#121316] shadow-xl group relative">
               <img
                 src={sceneImageUrl}
                 alt="Minh họa khoảnh khắc"
-                className="w-full h-auto max-h-[420px] object-cover transition-transform duration-300 group-hover:scale-105"
+                className="w-full h-auto max-h-[420px] object-cover transition-transform duration-300 group-hover:scale-102"
               />
+              <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                {onRegenerateScene && effectiveTurnId && (
+                  <button
+                    type="button"
+                    onClick={() => onRegenerateScene(effectiveTurnId)}
+                    disabled={isSending || isGeneratingThisTurn}
+                    className="rounded-lg bg-black/75 hover:bg-black/90 backdrop-blur-xs px-2.5 py-1 text-[11px] text-zinc-200 font-semibold flex items-center gap-1.5 shadow-md cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                    title="Vẽ lại khoảnh khắc này với snapshot cố định"
+                  >
+                    <RotateCcw className="h-3 w-3 text-amber-400" />
+                    <span>Vẽ lại</span>
+                  </button>
+                )}
+              </div>
               <div className="absolute bottom-2 right-2 rounded-lg bg-black/70 backdrop-blur-xs px-2.5 py-1 text-[10px] text-zinc-200 font-semibold flex items-center gap-1.5 shadow-md">
                 <Sparkles className="h-3 w-3 text-purple-400" />
                 <span>Khoảnh khắc AI</span>
+              </div>
+            </div>
+          )}
+
+          {/* 3. Failed Scene Generation */}
+          {!isGeneratingThisTurn && !sceneImageUrl && sceneImageStatus === "failed" && (
+            <div className="mt-3 overflow-hidden rounded-2xl border border-red-500/30 bg-red-950/20 p-3 shadow-md">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <ShieldAlert className="h-4 w-4 text-red-400 shrink-0" />
+                  <span className="text-xs text-red-300 font-medium truncate">
+                    {sceneImageFailureReason || "Không thể tạo ảnh cho khoảnh khắc này."}
+                  </span>
+                </div>
+                {onImagineScene && effectiveTurnId && (
+                  <button
+                    type="button"
+                    onClick={() => onImagineScene(effectiveTurnId)}
+                    disabled={isSending || isGeneratingThisTurn}
+                    className="shrink-0 rounded-lg bg-red-900/40 hover:bg-red-900/60 border border-red-500/40 px-2.5 py-1 text-[11px] font-semibold text-red-200 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                  >
+                    Thử lại
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -292,20 +361,16 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
                 </button>
               )}
 
-              {!isUser && onImagineScene && (
+              {!isUser && !isOpeningMessage && onImagineScene && effectiveTurnId && !sceneImageUrl && !isGeneratingThisTurn && (
                 <button
                   type="button"
-                  onClick={() => onImagineScene(msg.id, msg.content)}
-                  disabled={isSending || isImagining}
+                  onClick={() => onImagineScene(effectiveTurnId)}
+                  disabled={isSending || isGeneratingThisTurn}
                   className="flex items-center gap-1.5 rounded-lg bg-[#272832] px-2.5 py-1 text-[11px] font-medium text-zinc-300 hover:bg-[#323440] hover:text-purple-300 transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
                   title="AI vẽ lại khoảnh khắc nhân vật trong câu thoại này"
                 >
-                  {isImagining ? (
-                    <Loader2 className="h-3 w-3 animate-spin text-purple-400" />
-                  ) : (
-                    <Sparkles className="h-3 w-3 text-purple-400" />
-                  )}
-                  <span>{isImagining ? "Đang vẽ..." : "Vẽ cảnh"}</span>
+                  <Sparkles className="h-3 w-3 text-purple-400" />
+                  <span>Vẽ cảnh</span>
                 </button>
               )}
 

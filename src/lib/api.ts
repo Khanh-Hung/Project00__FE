@@ -19,6 +19,9 @@ import {
   ProactiveReachoutResponse,
   WorldGenre,
   CharacterVisualIdentity,
+  TriggerSceneImageResponse,
+  SceneImageStatusResponse,
+  SceneImageDto,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
@@ -426,6 +429,68 @@ export async function generateCharacterAvatar(req: {
   return { avatarUrl, fullBodyUrl, prompt };
 }
 
+export async function triggerTurnSceneImage(
+  sessionId: string,
+  turnId: string
+): Promise<TriggerSceneImageResponse> {
+  const res = await fetch(`${API_BASE_URL}/chat/sessions/${sessionId}/turns/${turnId}/image`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => null);
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Không thể kích hoạt vẽ hình ảnh cho lượt này. Vui lòng thử lại!"));
+  }
+  const json: ApiResponse<TriggerSceneImageResponse> = await res.json();
+  return json.data;
+}
+
+export async function getSceneImageStatus(
+  generationRequestId: string
+): Promise<SceneImageStatusResponse> {
+  const res = await fetch(`${API_BASE_URL}/chat/scene-images/${generationRequestId}`, {
+    headers: {
+      ...getAuthHeader(),
+    },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => null);
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Không thể lấy trạng thái hình ảnh."));
+  }
+  const json: ApiResponse<SceneImageStatusResponse> = await res.json();
+  return json.data;
+}
+
+export async function fetchTurnSceneImages(
+  sessionId: string,
+  turnId: string
+): Promise<SceneImageDto[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/chat/sessions/${sessionId}/turns/${turnId}/images`, {
+      headers: {
+        ...getAuthHeader(),
+      },
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const json: ApiResponse<SceneImageDto[]> = await res.json();
+    return json.data || [];
+  } catch (error) {
+    console.warn(`[API] Could not fetch scene images for turn ${turnId}:`, error);
+    return [];
+  }
+}
+
+/**
+ * @deprecated Use triggerTurnSceneImage and getSceneImageStatus instead.
+ */
 export async function generateSceneImage(req: {
   sessionId?: string;
   characterName?: string;
