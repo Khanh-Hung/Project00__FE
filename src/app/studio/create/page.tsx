@@ -12,7 +12,7 @@ import {
   CharacterVoiceProfile,
   CreateLorebookEntryDto,
 } from "@/types";
-import { createCharacter, generateCharacterWithAi, fetchAiRandomIdeas, generateCharacterAvatar } from "@/lib/api";
+import { createCharacter, generateCharacterWithAi, fetchAiRandomIdeas, generateCharacterAvatar, resolveMediaUrl } from "@/lib/api";
 import { Header } from "@/components/layout/Header";
 import { CharacterCard } from "@/components/characters/CharacterCard";
 import { ImageCropperModal } from "@/components/ui/ImageCropperModal";
@@ -629,7 +629,7 @@ export default function CreateCharacterPage() {
                           >
                             {avatarUrl ? (
                               <>
-                                <img src={avatarUrl} alt="Chân dung" className="w-full h-full object-cover" />
+                                <img src={resolveMediaUrl(avatarUrl)} alt="Chân dung" className="w-full h-full object-cover" />
                                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-[10px] font-semibold">
                                   Cắt lại
                                 </div>
@@ -685,7 +685,7 @@ export default function CreateCharacterPage() {
                           >
                             {fullBodyUrl ? (
                               <>
-                                <img src={fullBodyUrl} alt="Dáng đứng" className="w-full h-full object-cover object-top" />
+                                <img src={resolveMediaUrl(fullBodyUrl)} alt="Dáng đứng" className="w-full h-full object-cover object-top" />
                                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-semibold">
                                   Cắt lại
                                 </div>

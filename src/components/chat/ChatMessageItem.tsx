@@ -26,6 +26,7 @@ import {
 import { Avatar } from "@/components/ui/Avatar";
 import { ChatMessage, ChatSession } from "@/types";
 import { ThemeConfig } from "./chat.constants";
+import { resolveMediaUrl } from "@/lib/api";
 
 interface ChatMessageItemProps {
   msg: ChatMessage;
@@ -354,7 +355,7 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
             <div className="mt-3 space-y-2">
               <div className="overflow-hidden rounded-2xl border border-[#3b3d46] bg-[#121316] shadow-xl group relative">
                 <img
-                  src={sceneImageUrl}
+                  src={resolveMediaUrl(sceneImageUrl)}
                   alt="Minh họa khoảnh khắc"
                   className="w-full h-auto max-h-[420px] object-cover transition-transform duration-300 group-hover:scale-102"
                 />

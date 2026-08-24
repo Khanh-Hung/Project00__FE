@@ -25,6 +25,23 @@ import {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
 
+export function resolveMediaUrl(url?: string | null): string {
+  if (!url) return "";
+  if (
+    url.startsWith("http://") ||
+    url.startsWith("https://") ||
+    url.startsWith("data:") ||
+    url.startsWith("blob:")
+  ) {
+    return url;
+  }
+  const backendHost = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1").replace(/\/api\/v1\/?$/, "");
+  if (url.startsWith("/")) {
+    return `${backendHost}${url}`;
+  }
+  return `${backendHost}/${url}`;
+}
+
 function getAuthHeader(): Record<string, string> {
   if (typeof window !== "undefined") {
     const token = localStorage.getItem("nyxoris_auth_token");
@@ -440,8 +457,10 @@ export async function generateCharacterAvatar(req: {
   }
   const json = await res.json();
   const data = json?.data ?? json?.value ?? json;
-  const avatarUrl = data?.avatarUrl || data?.imageUrl || data?.url;
-  const fullBodyUrl = data?.fullBodyUrl || data?.canonicalReferenceUrl || undefined;
+  const rawAvatarUrl = data?.avatarUrl || data?.imageUrl || data?.url;
+  const rawFullBodyUrl = data?.fullBodyUrl || data?.canonicalReferenceUrl || undefined;
+  const avatarUrl = resolveMediaUrl(rawAvatarUrl);
+  const fullBodyUrl = rawFullBodyUrl ? resolveMediaUrl(rawFullBodyUrl) : undefined;
   const prompt = data?.prompt || data?.revisedPrompt || "";
   if (!data || !avatarUrl) {
     throw new Error("Không nhận được ảnh đại diện từ AI.");
@@ -485,7 +504,11 @@ export async function getSceneImageStatus(
     throw new Error(localizeError(rawError, "Không thể lấy trạng thái hình ảnh."));
   }
   const json: ApiResponse<SceneImageStatusResponse> = await res.json();
-  return json.data;
+  const statusData = json.data;
+  if (statusData && statusData.imageUrl) {
+    statusData.imageUrl = resolveMediaUrl(statusData.imageUrl);
+  }
+  return statusData;
 }
 
 /**
