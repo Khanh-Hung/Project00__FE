@@ -75,7 +75,7 @@ export function formatSceneImageError(rawReason?: string, status?: string): stri
     lower.includes("no such host") ||
     lower.includes("127.0.0.1:8188")
   ) {
-    return "Máy chủ vẽ ảnh AI (ComfyUI) tạm thời chưa sẵn sàng hoặc chưa được khởi động. Vui lòng thử lại sau.";
+    return "Máy chủ vẽ ảnh AI tạm thời chưa sẵn sàng hoặc chưa được khởi động. Vui lòng thử lại sau.";
   }
 
   if (lower.includes("reference image") || lower.includes("visual identity")) {
