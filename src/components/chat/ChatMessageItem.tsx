@@ -270,25 +270,31 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
 
           <div>{formatMessageContent(msg.content, theme)}</div>
 
-          {/* 1. In-Flight Image Generation (Queued / Pending / Processing) */}
-          {isGeneratingThisTurn && (
-            <div className="mt-3 overflow-hidden rounded-2xl border border-purple-500/30 bg-[#16141f]/90 p-4 shadow-xl relative animate-pulse">
-              <div className="flex items-center gap-3">
-                <Loader2 className="h-5 w-5 animate-spin text-purple-400 shrink-0" />
-                <div className="space-y-1 min-w-0">
-                  <p className="text-xs font-semibold text-purple-200">
-                    {sceneImageStatus === "queued" ? "Đang xếp hàng tạo ảnh..." : "Đang phác họa khoảnh khắc..."}
-                  </p>
-                  <p className="text-[11px] text-zinc-400 truncate">
-                    ComfyUI đang tái hiện bối cảnh nhân vật...
-                  </p>
+          {/* 1. In-Flight Initial Generation (when no prior image exists) */}
+          {isGeneratingThisTurn && !sceneImageUrl && (
+            <div className="mt-3 overflow-hidden rounded-2xl border border-purple-500/25 bg-gradient-to-b from-purple-950/25 via-[#13121c] to-[#0c0c12] p-6 shadow-xl relative flex flex-col items-center justify-center text-center gap-3 min-h-[150px]">
+              <div className="relative flex items-center justify-center">
+                <div className="absolute h-10 w-10 rounded-full bg-purple-500/20 animate-ping" />
+                <div className="relative h-10 w-10 rounded-full bg-purple-950/80 border border-purple-500/40 flex items-center justify-center shadow-md">
+                  <Sparkles className="h-5 w-5 text-purple-300 animate-pulse" />
                 </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-purple-200">
+                  {sceneImageStatus === "queued" ? "Đang chuẩn bị khung cảnh..." : "Đang phác họa khoảnh khắc..."}
+                </p>
+                <p className="text-[11px] text-zinc-400">
+                  AI đang tái hiện cảm xúc và bối cảnh của nhân vật
+                </p>
+              </div>
+              <div className="w-28 h-1 rounded-full bg-purple-950/80 overflow-hidden border border-purple-500/20 mt-1">
+                <div className="h-full w-full bg-gradient-to-r from-purple-500 via-pink-400 to-purple-500 animate-pulse" />
               </div>
             </div>
           )}
 
-          {/* 2. Completed Scene Illustration Image */}
-          {!isGeneratingThisTurn && sceneImageUrl && (
+          {/* 2. Scene Illustration Image (Completed or with In-Flight Regeneration Overlay) */}
+          {sceneImageUrl && (
             <div className="mt-3 space-y-2">
               <div className="overflow-hidden rounded-2xl border border-[#3b3d46] bg-[#121316] shadow-xl group relative">
                 <img
@@ -296,28 +302,43 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
                   alt="Minh họa khoảnh khắc"
                   className="w-full h-auto max-h-[420px] object-cover transition-transform duration-300 group-hover:scale-102"
                 />
-                <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {onRegenerateScene && effectiveTurnId && (
-                    <button
-                      type="button"
-                      onClick={() => onRegenerateScene(effectiveTurnId)}
-                      disabled={isSending || isGeneratingThisTurn}
-                      className="rounded-lg bg-black/75 hover:bg-black/90 backdrop-blur-xs px-2.5 py-1 text-[11px] text-zinc-200 font-semibold flex items-center gap-1.5 shadow-md cursor-pointer transition-all active:scale-95 disabled:opacity-50"
-                      title="Vẽ lại khoảnh khắc này với snapshot cố định"
-                    >
-                      <RotateCcw className="h-3 w-3 text-amber-400" />
-                      <span>Vẽ lại</span>
-                    </button>
-                  )}
-                </div>
-                <div className="absolute bottom-2 right-2 rounded-lg bg-black/70 backdrop-blur-xs px-2.5 py-1 text-[10px] text-zinc-200 font-semibold flex items-center gap-1.5 shadow-md">
+
+                {/* Regeneration In-Flight Overlay */}
+                {isGeneratingThisTurn && (
+                  <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center gap-2 p-4 z-10">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-950/90 border border-purple-500/40 shadow-lg text-purple-200 text-xs font-medium animate-pulse">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-purple-400" />
+                      <span>{sceneImageStatus === "queued" ? "Đang chuẩn bị bản vẽ mới..." : "Đang phác họa bản vẽ mới..."}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Regenerate Action Button */}
+                {!isGeneratingThisTurn && (
+                  <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    {onRegenerateScene && effectiveTurnId && (
+                      <button
+                        type="button"
+                        onClick={() => onRegenerateScene(effectiveTurnId)}
+                        disabled={isSending || isGeneratingThisTurn}
+                        className="rounded-lg bg-black/75 hover:bg-black/90 backdrop-blur-xs px-2.5 py-1 text-[11px] text-zinc-200 font-semibold flex items-center gap-1.5 shadow-md cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                        title="Vẽ lại khoảnh khắc này với snapshot cố định"
+                      >
+                        <RotateCcw className="h-3 w-3 text-amber-400" />
+                        <span>Vẽ lại</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <div className="absolute bottom-2 right-2 rounded-lg bg-black/70 backdrop-blur-xs px-2.5 py-1 text-[10px] text-zinc-200 font-semibold flex items-center gap-1.5 shadow-md z-10">
                   <Sparkles className="h-3 w-3 text-purple-400" />
                   <span>Khoảnh khắc AI</span>
                 </div>
               </div>
 
               {/* Notice if a regeneration attempt failed or was cancelled */}
-              {(sceneImageStatus === "failed" || sceneImageStatus === "timeout" || sceneImageStatus === "cancelled") && (
+              {!isGeneratingThisTurn && (sceneImageStatus === "failed" || sceneImageStatus === "timeout" || sceneImageStatus === "cancelled") && (
                 <div className="overflow-hidden rounded-xl border border-red-500/30 bg-red-950/20 px-3 py-2 text-xs flex items-center justify-between gap-2">
                   <span className="text-red-300">
                     {sceneImageFailureReason || (sceneImageStatus === "cancelled" ? "Lần vẽ lại gần nhất đã bị hủy (đã giữ lại bản vẽ trước)." : "Lần vẽ lại gần nhất không thành công (đã giữ lại bản vẽ trước).")}
@@ -327,7 +348,7 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
                       type="button"
                       onClick={() => onImagineScene(effectiveTurnId)}
                       disabled={isSending || isGeneratingThisTurn}
-                      className="shrink-0 rounded bg-red-900/50 hover:bg-red-900/80 px-2 py-0.5 text-[10px] font-semibold text-red-200"
+                      className="shrink-0 rounded bg-red-900/50 hover:bg-red-900/80 px-2 py-0.5 text-[10px] font-semibold text-red-200 cursor-pointer"
                     >
                       Thử lại
                     </button>
