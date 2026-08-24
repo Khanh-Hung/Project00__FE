@@ -361,10 +361,10 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
           {/* 3. Failed / Cancelled Scene Generation (when no prior image exists) */}
           {!isGeneratingThisTurn && !sceneImageUrl && (sceneImageStatus === "failed" || sceneImageStatus === "cancelled") && (
             <div className="mt-3 overflow-hidden rounded-2xl border border-red-500/30 bg-red-950/20 p-3 shadow-md">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <ShieldAlert className="h-4 w-4 text-red-400 shrink-0" />
-                  <span className="text-xs text-red-300 font-medium truncate">
+                  <span className="text-xs text-red-300 font-medium leading-relaxed">
                     {sceneImageFailureReason || (sceneImageStatus === "cancelled" ? "Yêu cầu vẽ ảnh đã bị hủy." : "Không thể tạo ảnh cho khoảnh khắc này.")}
                   </span>
                 </div>
@@ -373,7 +373,7 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
                     type="button"
                     onClick={() => onImagineScene(effectiveTurnId)}
                     disabled={isSending || isGeneratingThisTurn}
-                    className="shrink-0 rounded-lg bg-red-900/40 hover:bg-red-900/60 border border-red-500/40 px-2.5 py-1 text-[11px] font-semibold text-red-200 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                    className="shrink-0 rounded-lg bg-red-900/40 hover:bg-red-900/60 border border-red-500/40 px-3 py-1.5 text-[11px] font-semibold text-red-200 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
                   >
                     Thử lại
                   </button>
@@ -385,10 +385,10 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
           {/* 4. Polling Timeout / Latency Warning */}
           {!isGeneratingThisTurn && !sceneImageUrl && sceneImageStatus === "timeout" && (
             <div className="mt-3 overflow-hidden rounded-2xl border border-amber-500/30 bg-amber-950/20 p-3 shadow-md">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <Clock className="h-4 w-4 text-amber-400 shrink-0" />
-                  <span className="text-xs text-amber-300 font-medium truncate">
+                  <span className="text-xs text-amber-300 font-medium leading-relaxed">
                     {sceneImageFailureReason || "Hết thời gian chờ phản hồi từ máy chủ."}
                   </span>
                 </div>
@@ -397,7 +397,7 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
                     type="button"
                     onClick={() => onImagineScene(effectiveTurnId)}
                     disabled={isSending || isGeneratingThisTurn}
-                    className="shrink-0 rounded-lg bg-amber-900/40 hover:bg-amber-900/60 border border-amber-500/40 px-2.5 py-1 text-[11px] font-semibold text-amber-200 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                    className="shrink-0 rounded-lg bg-amber-900/40 hover:bg-amber-900/60 border border-amber-500/40 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
                   >
                     Thử lại
                   </button>
