@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Character } from "@/types";
-import { fetchCharacters, updateCharacter, deleteCharacter } from "@/lib/api";
+import { fetchMyCharacters, updateCharacter, deleteCharacter } from "@/lib/api";
 import { Header } from "@/components/layout/Header";
 import { Avatar } from "@/components/ui/Avatar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useAuth } from "@/core/providers/AuthProvider";
 import {
   Palette,
   Plus,
@@ -17,11 +18,13 @@ import {
   Loader2,
   Sparkles,
   X,
+  LogIn,
 } from "lucide-react";
 import { getWorldGenreMeta } from "@/lib/constants";
 import Link from "next/link";
 
 export default function StudioPage() {
+  const { isAuthenticated, isLoading: isAuthLoading, openAuthModal } = useAuth();
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -29,9 +32,10 @@ export default function StudioPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const loadCharacters = async () => {
+    if (!isAuthenticated) return;
     try {
       setIsLoading(true);
-      const data = await fetchCharacters();
+      const data = await fetchMyCharacters();
       setCharacters(data);
     } catch (err) {
       console.error("Failed to load studio characters", err);
@@ -41,8 +45,12 @@ export default function StudioPage() {
   };
 
   useEffect(() => {
-    loadCharacters();
-  }, []);
+    if (isAuthenticated) {
+      loadCharacters();
+    } else {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated]);
 
   const handleConfirmDelete = async () => {
     if (!characterToDelete) return;
@@ -86,6 +94,32 @@ export default function StudioPage() {
     const matchTags = c.tags?.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchName || matchTitle || matchTags;
   });
+
+  if (!isAuthLoading && !isAuthenticated) {
+    return (
+      <div className="h-full flex flex-col bg-[#18191c] text-zinc-100 overflow-hidden selection:bg-[#353740] selection:text-white">
+        <Header />
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="max-w-md w-full rounded-2xl border border-[#31333a] bg-[#212227] p-8 text-center shadow-xl">
+            <div className="mx-auto w-14 h-14 rounded-2xl bg-[#2b2c34] border border-[#3b3d46] flex items-center justify-center text-zinc-200 mb-5">
+              <Lock className="w-6 h-6 text-zinc-300" />
+            </div>
+            <h2 className="text-xl font-bold text-zinc-100 tracking-tight">Studio Sáng Tạo</h2>
+            <p className="text-xs sm:text-sm text-zinc-400 mt-2 mb-6 leading-relaxed">
+              Vui lòng đăng nhập để quản lý, chỉnh sửa và sáng tạo các nhân vật AI nhập vai của riêng bạn.
+            </p>
+            <button
+              onClick={openAuthModal}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 py-2.5 px-4 text-xs sm:text-sm font-bold shadow-md shadow-white/5 transition-all cursor-pointer active:scale-98"
+            >
+              <LogIn className="w-4 h-4 text-zinc-950" />
+              <span>Đăng nhập ngay</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col bg-[#18191c] text-zinc-100 overflow-hidden selection:bg-[#353740] selection:text-white">

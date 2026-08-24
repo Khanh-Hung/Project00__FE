@@ -18,6 +18,7 @@ import { CharacterCard } from "@/components/characters/CharacterCard";
 import { ImageCropperModal } from "@/components/ui/ImageCropperModal";
 import RelationshipMilestonesEditor from "@/components/characters/RelationshipMilestonesEditor";
 import { WORLD_GENRE_OPTIONS, getWorldGenreMeta } from "@/lib/constants";
+import { useAuth } from "@/core/providers/AuthProvider";
 import {
   ArrowLeft,
   Sparkles,
@@ -61,6 +62,14 @@ const GENDER_OPTIONS = [
 
 export default function CreateCharacterPage() {
   const router = useRouter();
+  const { isAuthenticated, isLoading: isAuthLoading, openAuthModal } = useAuth();
+
+  useEffect(() => {
+    if (!isAuthLoading && !isAuthenticated) {
+      openAuthModal();
+      router.push("/studio");
+    }
+  }, [isAuthLoading, isAuthenticated, router, openAuthModal]);
 
   // AI Generator state
   const [aiIdea, setAiIdea] = useState("");
