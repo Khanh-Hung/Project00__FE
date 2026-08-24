@@ -48,7 +48,7 @@ import { AffectionModal } from "@/components/chat/AffectionModal";
 import { ChatSkeleton } from "@/components/chat/ChatSkeleton";
 
 interface TurnImageState {
-  status: "idle" | "queued" | "pending" | "processing" | "completed" | "failed" | "timeout";
+  status: "idle" | "queued" | "pending" | "processing" | "completed" | "failed" | "timeout" | "cancelled";
   imageUrl?: string;
   generationRequestId?: string;
   failureReason?: string;
@@ -166,9 +166,9 @@ export default function ChatPage() {
               imageUrl: m.sceneImageUrl,
               generationRequestId: m.generationRequestId || undefined,
             };
-          } else if (status === "failed") {
+          } else if (status === "failed" || status === "cancelled") {
             initialImageMap[turnId] = {
-              status: "failed",
+              status: status,
               imageUrl: m.sceneImageUrl || undefined,
               generationRequestId: m.generationRequestId || undefined,
             };
@@ -492,6 +492,17 @@ export default function ChatPage() {
             [turnId]: {
               status: "failed",
               failureReason: statusRes.failureReason || "Không thể tạo ảnh cho khoảnh khắc này.",
+              generationRequestId,
+            },
+          }));
+          return;
+        } else if (statusRes.status === "cancelled") {
+          delete activePollingRef.current[turnId];
+          setTurnImageStateMap((prev) => ({
+            ...prev,
+            [turnId]: {
+              status: "cancelled",
+              failureReason: "Yêu cầu vẽ ảnh đã bị hủy.",
               generationRequestId,
             },
           }));

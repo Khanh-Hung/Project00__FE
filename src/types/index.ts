@@ -262,7 +262,7 @@ export enum SessionStatus {
   Closed = 3,
 }
 
-export type SceneImageUIStatus = "idle" | "queued" | "pending" | "processing" | "completed" | "failed" | "timeout";
+export type SceneImageUIStatus = "idle" | "queued" | "pending" | "processing" | "completed" | "failed" | "timeout" | "cancelled";
 
 export interface ChatMessage {
   id: string;
@@ -271,7 +271,7 @@ export interface ChatMessage {
   timestamp: string;
   turnId?: string | null;
   sceneImageUrl?: string | null;
-  sceneImageStatus?: "queued" | "pending" | "processing" | "completed" | "failed" | "timeout" | null;
+  sceneImageStatus?: "queued" | "pending" | "processing" | "completed" | "failed" | "timeout" | "cancelled" | null;
   generationRequestId?: string | null;
 }
 

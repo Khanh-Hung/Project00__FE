@@ -43,7 +43,7 @@ interface ChatMessageItemProps {
   isLoadingSuggestions: boolean;
   isImagining?: boolean;
   sceneImageUrl?: string;
-  sceneImageStatus?: "idle" | "queued" | "pending" | "processing" | "completed" | "failed" | "timeout";
+  sceneImageStatus?: "idle" | "queued" | "pending" | "processing" | "completed" | "failed" | "timeout" | "cancelled";
   sceneImageFailureReason?: string;
   onCopy: (id: string, text: string) => void;
   onRollback: (id: string, index: number) => void;
@@ -316,11 +316,11 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
                 </div>
               </div>
 
-              {/* Notice if a regeneration attempt failed */}
-              {(sceneImageStatus === "failed" || sceneImageStatus === "timeout") && (
+              {/* Notice if a regeneration attempt failed or was cancelled */}
+              {(sceneImageStatus === "failed" || sceneImageStatus === "timeout" || sceneImageStatus === "cancelled") && (
                 <div className="overflow-hidden rounded-xl border border-red-500/30 bg-red-950/20 px-3 py-2 text-xs flex items-center justify-between gap-2">
                   <span className="text-red-300">
-                    {sceneImageFailureReason || "Lần vẽ lại gần nhất không thành công (đã giữ lại bản vẽ trước)."}
+                    {sceneImageFailureReason || (sceneImageStatus === "cancelled" ? "Lần vẽ lại gần nhất đã bị hủy (đã giữ lại bản vẽ trước)." : "Lần vẽ lại gần nhất không thành công (đã giữ lại bản vẽ trước).")}
                   </span>
                   {onImagineScene && effectiveTurnId && (
                     <button
@@ -337,14 +337,14 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
             </div>
           )}
 
-          {/* 3. Failed Scene Generation (when no prior image exists) */}
-          {!isGeneratingThisTurn && !sceneImageUrl && sceneImageStatus === "failed" && (
+          {/* 3. Failed / Cancelled Scene Generation (when no prior image exists) */}
+          {!isGeneratingThisTurn && !sceneImageUrl && (sceneImageStatus === "failed" || sceneImageStatus === "cancelled") && (
             <div className="mt-3 overflow-hidden rounded-2xl border border-red-500/30 bg-red-950/20 p-3 shadow-md">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <ShieldAlert className="h-4 w-4 text-red-400 shrink-0" />
                   <span className="text-xs text-red-300 font-medium truncate">
-                    {sceneImageFailureReason || "Không thể tạo ảnh cho khoảnh khắc này."}
+                    {sceneImageFailureReason || (sceneImageStatus === "cancelled" ? "Yêu cầu vẽ ảnh đã bị hủy." : "Không thể tạo ảnh cho khoảnh khắc này.")}
                   </span>
                 </div>
                 {onImagineScene && effectiveTurnId && (
