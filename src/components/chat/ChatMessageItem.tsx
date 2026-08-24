@@ -54,6 +54,49 @@ interface ChatMessageItemProps {
   onRegenerateScene?: (turnId: string) => void;
 }
 
+export function formatSceneImageError(rawReason?: string, status?: string): string {
+  if (status === "cancelled") {
+    return "Yêu cầu vẽ ảnh đã được hủy.";
+  }
+  if (status === "timeout") {
+    return "Hết thời gian chờ phản hồi từ máy chủ AI. Bạn hãy thử lại nhé.";
+  }
+  if (!rawReason) {
+    return "Không thể tạo ảnh cho khoảnh khắc này. Vui lòng thử lại.";
+  }
+
+  const lower = rawReason.toLowerCase();
+  if (
+    lower.includes("actively refused") ||
+    lower.includes("failed to communicate with comfyui") ||
+    lower.includes("connection refused") ||
+    lower.includes("socketexception") ||
+    lower.includes("httprequestexception") ||
+    lower.includes("no such host") ||
+    lower.includes("127.0.0.1:8188")
+  ) {
+    return "Máy chủ vẽ ảnh AI (ComfyUI) tạm thời chưa sẵn sàng hoặc chưa được khởi động. Vui lòng thử lại sau.";
+  }
+
+  if (lower.includes("reference image") || lower.includes("visual identity")) {
+    return "Chưa có ảnh chân dung mẫu phù hợp để phác họa nhân vật này.";
+  }
+
+  if (lower.includes("timeout") || lower.includes("timed out") || lower.includes("canceled")) {
+    return "Quá trình tạo ảnh mất nhiều thời gian hơn dự kiến. Vui lòng bấm thử lại.";
+  }
+
+  if (lower.includes("workflow") || lower.includes("model") || lower.includes("gpu")) {
+    return "Mô hình vẽ ảnh đang bận hoặc đang bảo trì. Vui lòng thử lại sau.";
+  }
+
+  if (rawReason.length < 80 && !rawReason.includes("Exception") && !rawReason.includes("{") && !rawReason.includes("at ")) {
+    return rawReason;
+  }
+
+  return "Không thể tạo ảnh cho khoảnh khắc này. Vui lòng thử lại.";
+}
+
 export const getActionMeta = (actionText: string, colorClass: string) => {
   const tagMatch = actionText.match(/^\[([a-zA-Z0-9_-]+)\]/);
   const tag = tagMatch ? tagMatch[1].toLowerCase() : null;
@@ -341,7 +384,9 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
               {!isGeneratingThisTurn && (sceneImageStatus === "failed" || sceneImageStatus === "timeout" || sceneImageStatus === "cancelled") && (
                 <div className="overflow-hidden rounded-xl border border-red-500/30 bg-red-950/20 px-3 py-2 text-xs flex items-center justify-between gap-2">
                   <span className="text-red-300">
-                    {sceneImageFailureReason || (sceneImageStatus === "cancelled" ? "Lần vẽ lại gần nhất đã bị hủy (đã giữ lại bản vẽ trước)." : "Lần vẽ lại gần nhất không thành công (đã giữ lại bản vẽ trước).")}
+                    {sceneImageStatus === "cancelled"
+                      ? "Lần vẽ lại gần nhất đã bị hủy (đã giữ lại bản vẽ trước)."
+                      : `Lần vẽ lại không thành công: ${formatSceneImageError(sceneImageFailureReason, sceneImageStatus)} (đã giữ lại bản vẽ trước).`}
                   </span>
                   {onImagineScene && effectiveTurnId && (
                     <button
@@ -365,7 +410,7 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
                 <div className="flex items-center gap-2.5 min-w-0">
                   <ShieldAlert className="h-4 w-4 text-red-400 shrink-0" />
                   <span className="text-xs text-red-300 font-medium leading-relaxed">
-                    {sceneImageFailureReason || (sceneImageStatus === "cancelled" ? "Yêu cầu vẽ ảnh đã bị hủy." : "Không thể tạo ảnh cho khoảnh khắc này.")}
+                    {formatSceneImageError(sceneImageFailureReason, sceneImageStatus)}
                   </span>
                 </div>
                 {onImagineScene && effectiveTurnId && (
