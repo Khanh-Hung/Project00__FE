@@ -28,7 +28,6 @@ import {
   generateSceneImage,
   triggerTurnSceneImage,
   getSceneImageStatus,
-  fetchTurnSceneImages,
 } from "@/lib/api";
 import { Avatar } from "@/components/ui/Avatar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -49,7 +48,7 @@ import { AffectionModal } from "@/components/chat/AffectionModal";
 import { ChatSkeleton } from "@/components/chat/ChatSkeleton";
 
 interface TurnImageState {
-  status: "idle" | "queued" | "pending" | "processing" | "completed" | "failed";
+  status: "idle" | "queued" | "pending" | "processing" | "completed" | "failed" | "timeout";
   imageUrl?: string;
   generationRequestId?: string;
   failureReason?: string;
@@ -415,32 +414,33 @@ export default function ChatPage() {
     }
   };
 
-  // Cleanup active polling intervals when switching sessions or unmounting
+  // Cleanup active polling timeouts when switching sessions or unmounting
   useEffect(() => {
     return () => {
-      Object.values(activePollingRef.current).forEach((interval) => clearInterval(interval));
+      Object.values(activePollingRef.current).forEach((timer) => clearTimeout(timer));
       activePollingRef.current = {};
     };
   }, [sessionId]);
 
   const startPolling = (turnId: string, generationRequestId: string) => {
     if (activePollingRef.current[turnId]) {
-      clearInterval(activePollingRef.current[turnId]);
+      clearTimeout(activePollingRef.current[turnId]);
+      delete activePollingRef.current[turnId];
     }
 
     let iterations = 0;
-    const maxIterations = 120; // 3 minutes max
+    let consecutiveErrors = 0;
+    const maxIterations = 120; // 3 minutes max (120 * 1.5s)
 
-    const interval = setInterval(async () => {
+    const poll = async () => {
       iterations++;
       if (iterations > maxIterations) {
-        clearInterval(interval);
         delete activePollingRef.current[turnId];
         setTurnImageStateMap((prev) => ({
           ...prev,
           [turnId]: {
-            status: "failed",
-            failureReason: "Quá thời gian tạo ảnh. Vui lòng thử lại!",
+            status: "timeout",
+            failureReason: "Hết thời gian chờ phản hồi từ máy chủ. Vui lòng làm mới trang hoặc thử lại sau.",
             generationRequestId,
           },
         }));
@@ -449,8 +449,9 @@ export default function ChatPage() {
 
       try {
         const statusRes = await getSceneImageStatus(generationRequestId);
+        consecutiveErrors = 0;
+
         if (statusRes.status === "completed" && statusRes.imageUrl) {
-          clearInterval(interval);
           delete activePollingRef.current[turnId];
           setTurnImageStateMap((prev) => ({
             ...prev,
@@ -474,8 +475,8 @@ export default function ChatPage() {
               return m;
             })
           );
+          return;
         } else if (statusRes.status === "failed") {
-          clearInterval(interval);
           delete activePollingRef.current[turnId];
           setTurnImageStateMap((prev) => ({
             ...prev,
@@ -485,7 +486,9 @@ export default function ChatPage() {
               generationRequestId,
             },
           }));
+          return;
         } else {
+          // queued, pending, processing
           setTurnImageStateMap((prev) => ({
             ...prev,
             [turnId]: {
@@ -495,11 +498,28 @@ export default function ChatPage() {
           }));
         }
       } catch (err) {
-        console.warn("[Polling] Error checking scene image status:", err);
+        consecutiveErrors++;
+        console.warn(`[Polling] Network error (${consecutiveErrors}/3) for turn ${turnId}:`, err);
+        if (consecutiveErrors >= 3) {
+          delete activePollingRef.current[turnId];
+          setTurnImageStateMap((prev) => ({
+            ...prev,
+            [turnId]: {
+              status: "timeout",
+              failureReason: "Mất kết nối với máy chủ khi đang tạo ảnh. Vui lòng thử lại sau!",
+              generationRequestId,
+            },
+          }));
+          return;
+        }
       }
-    }, 1500);
 
-    activePollingRef.current[turnId] = interval;
+      // Schedule next poll sequentially after current response finishes
+      activePollingRef.current[turnId] = setTimeout(poll, 1500);
+    };
+
+    // Trigger initial poll
+    activePollingRef.current[turnId] = setTimeout(poll, 1500);
   };
 
   const handleTriggerTurnImage = async (turnId: string) => {

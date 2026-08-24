@@ -21,7 +21,6 @@ import {
   CharacterVisualIdentity,
   TriggerSceneImageResponse,
   SceneImageStatusResponse,
-  SceneImageDto,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
@@ -466,26 +465,6 @@ export async function getSceneImageStatus(
   }
   const json: ApiResponse<SceneImageStatusResponse> = await res.json();
   return json.data;
-}
-
-export async function fetchTurnSceneImages(
-  sessionId: string,
-  turnId: string
-): Promise<SceneImageDto[]> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/chat/sessions/${sessionId}/turns/${turnId}/images`, {
-      headers: {
-        ...getAuthHeader(),
-      },
-      cache: "no-store",
-    });
-    if (!res.ok) return [];
-    const json: ApiResponse<SceneImageDto[]> = await res.json();
-    return json.data || [];
-  } catch (error) {
-    console.warn(`[API] Could not fetch scene images for turn ${turnId}:`, error);
-    return [];
-  }
 }
 
 /**
