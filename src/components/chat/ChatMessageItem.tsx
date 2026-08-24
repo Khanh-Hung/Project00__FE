@@ -215,7 +215,7 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
   onImagineScene,
   onRegenerateScene,
 }) => {
-  const effectiveTurnId = msg.turnId || msg.id;
+  const effectiveTurnId = msg.turnId || undefined;
   const isGeneratingThisTurn =
     isImagining ||
     sceneImageStatus === "queued" ||

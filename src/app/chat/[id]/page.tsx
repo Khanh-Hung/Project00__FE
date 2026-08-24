@@ -142,7 +142,8 @@ export default function ChatPage() {
 
         const initialImageMap: Record<string, TurnImageState> = {};
         data.messages?.forEach((m) => {
-          const turnId = m.turnId || m.id;
+          if (!m.turnId) return;
+          const turnId = m.turnId;
           const status = m.sceneImageStatus;
 
           if (
@@ -257,7 +258,7 @@ export default function ChatPage() {
       const response = await sendChatMessage(sessionId, userText);
       const assistantMsg = {
         ...response.assistantMessage,
-        turnId: response.turnId || response.assistantMessage.turnId || response.assistantMessage.id,
+        turnId: response.turnId || response.assistantMessage.turnId || undefined,
       };
       setMessages((prev) => [
         ...prev.filter((m) => m.id !== tempUserMsg.id),
@@ -341,7 +342,7 @@ export default function ChatPage() {
       const response = await sendChatMessage(sessionId, prompt);
       const assistantMsg = {
         ...response.assistantMessage,
-        turnId: response.turnId || response.assistantMessage.turnId || response.assistantMessage.id,
+        turnId: response.turnId || response.assistantMessage.turnId || undefined,
       };
       setMessages((prev) => [
         ...prev.filter((m) => m.id !== tempUserMsg.id),
@@ -399,7 +400,7 @@ export default function ChatPage() {
       const response = await sendChatMessage(sessionId, lastUserText);
       const assistantMsg = {
         ...response.assistantMessage,
-        turnId: response.turnId || response.assistantMessage.turnId || response.assistantMessage.id,
+        turnId: response.turnId || response.assistantMessage.turnId || undefined,
       };
       setMessages((prev) => {
         const copy = [...prev];
@@ -472,8 +473,7 @@ export default function ChatPage() {
           }));
           setMessages((prev) =>
             prev.map((m) => {
-              const mTurnId = m.turnId || m.id;
-              if (mTurnId === turnId) {
+              if (m.turnId === turnId) {
                 return {
                   ...m,
                   sceneImageUrl: statusRes.imageUrl,
@@ -817,8 +817,8 @@ export default function ChatPage() {
               const isOpeningMessage = index === 0 && !isUser;
               const isLatestAI = !isUser && index === lastAIMessageIndex;
 
-              const effectiveTurnId = msg.turnId || msg.id;
-              const turnImgState = turnImageStateMap[effectiveTurnId];
+              const effectiveTurnId = msg.turnId || undefined;
+              const turnImgState = effectiveTurnId ? turnImageStateMap[effectiveTurnId] : undefined;
               const itemSceneImageUrl = turnImgState?.imageUrl || msg.sceneImageUrl;
               const itemSceneImageStatus =
                 turnImgState?.status ||
