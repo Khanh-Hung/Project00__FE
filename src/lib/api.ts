@@ -160,6 +160,27 @@ export async function fetchCharacters(category?: string): Promise<Character[]> {
   }
 }
 
+export async function fetchMyCharacters(): Promise<Character[]> {
+  try {
+    const authHeader = getAuthHeader();
+    if (!authHeader.Authorization) return [];
+
+    const res = await fetch(`${API_BASE_URL}/characters/mine`, {
+      headers: { ...authHeader },
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      console.warn(`[API] Failed to fetch my characters, status: ${res.status}`);
+      return [];
+    }
+    const json: ApiResponse<Character[]> = await res.json();
+    return json.data || [];
+  } catch (error) {
+    console.warn("[API] Could not fetch my characters:", error);
+    return [];
+  }
+}
+
 export async function fetchCharacterById(id: string): Promise<Character | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/characters/${id}`, { cache: "no-store" });
