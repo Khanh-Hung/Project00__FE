@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { User, Bot } from "lucide-react";
+import { resolveMediaUrl } from "@/lib/api";
 
 interface AvatarProps {
   src?: string | null;
@@ -48,7 +49,8 @@ export function Avatar({
     xl: "h-28 w-28 sm:h-36 sm:w-36 text-2xl",
   };
 
-  const showImage = Boolean(src && src.trim().length > 0 && !imgError);
+  const resolvedSrc = resolveMediaUrl(src);
+  const showImage = Boolean(resolvedSrc && resolvedSrc.trim().length > 0 && !imgError);
 
   return (
     <div
@@ -56,7 +58,7 @@ export function Avatar({
     >
       {showImage ? (
         <img
-          src={src!}
+          src={resolvedSrc}
           alt={alt}
           onError={() => setImgError(true)}
           className="h-full w-full object-cover transition-transform duration-300 antialiased"

@@ -19,9 +19,28 @@ import {
   ProactiveReachoutResponse,
   WorldGenre,
   CharacterVisualIdentity,
+  TriggerSceneImageResponse,
+  SceneImageStatusResponse,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+
+export function resolveMediaUrl(url?: string | null): string {
+  if (!url) return "";
+  if (
+    url.startsWith("http://") ||
+    url.startsWith("https://") ||
+    url.startsWith("data:") ||
+    url.startsWith("blob:")
+  ) {
+    return url;
+  }
+  const backendHost = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1").replace(/\/api\/v1\/?$/, "");
+  if (url.startsWith("/")) {
+    return `${backendHost}${url}`;
+  }
+  return `${backendHost}/${url}`;
+}
 
 function getAuthHeader(): Record<string, string> {
   if (typeof window !== "undefined") {
@@ -154,6 +173,27 @@ export async function fetchCharacters(category?: string): Promise<Character[]> {
     return json.data || [];
   } catch (error) {
     console.warn("[API] Backend is unreachable or returned error:", error);
+    return [];
+  }
+}
+
+export async function fetchMyCharacters(): Promise<Character[]> {
+  try {
+    const authHeader = getAuthHeader();
+    if (!authHeader.Authorization) return [];
+
+    const res = await fetch(`${API_BASE_URL}/characters/mine`, {
+      headers: { ...authHeader },
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      console.warn(`[API] Failed to fetch my characters, status: ${res.status}`);
+      return [];
+    }
+    const json: ApiResponse<Character[]> = await res.json();
+    return json.data || [];
+  } catch (error) {
+    console.warn("[API] Could not fetch my characters:", error);
     return [];
   }
 }
@@ -417,8 +457,10 @@ export async function generateCharacterAvatar(req: {
   }
   const json = await res.json();
   const data = json?.data ?? json?.value ?? json;
-  const avatarUrl = data?.avatarUrl || data?.imageUrl || data?.url;
-  const fullBodyUrl = data?.fullBodyUrl || data?.canonicalReferenceUrl || undefined;
+  const rawAvatarUrl = data?.avatarUrl || data?.imageUrl || data?.url;
+  const rawFullBodyUrl = data?.fullBodyUrl || data?.canonicalReferenceUrl || undefined;
+  const avatarUrl = resolveMediaUrl(rawAvatarUrl);
+  const fullBodyUrl = rawFullBodyUrl ? resolveMediaUrl(rawFullBodyUrl) : undefined;
   const prompt = data?.prompt || data?.revisedPrompt || "";
   if (!data || !avatarUrl) {
     throw new Error("Không nhận được ảnh đại diện từ AI.");
@@ -426,6 +468,52 @@ export async function generateCharacterAvatar(req: {
   return { avatarUrl, fullBodyUrl, prompt };
 }
 
+export async function triggerTurnSceneImage(
+  sessionId: string,
+  turnId: string
+): Promise<TriggerSceneImageResponse> {
+  const res = await fetch(`${API_BASE_URL}/chat/sessions/${sessionId}/turns/${turnId}/image`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeader(),
+    },
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => null);
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Không thể kích hoạt vẽ hình ảnh cho lượt này. Vui lòng thử lại!"));
+  }
+  const json: ApiResponse<TriggerSceneImageResponse> = await res.json();
+  return json.data;
+}
+
+export async function getSceneImageStatus(
+  generationRequestId: string
+): Promise<SceneImageStatusResponse> {
+  const res = await fetch(`${API_BASE_URL}/chat/scene-images/${generationRequestId}`, {
+    headers: {
+      ...getAuthHeader(),
+    },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => null);
+    const rawError = extractErrorMessage(errorJson);
+    throw new Error(localizeError(rawError, "Không thể lấy trạng thái hình ảnh."));
+  }
+  const json: ApiResponse<SceneImageStatusResponse> = await res.json();
+  const statusData = json.data;
+  if (statusData && statusData.imageUrl) {
+    statusData.imageUrl = resolveMediaUrl(statusData.imageUrl);
+  }
+  return statusData;
+}
+
+/**
+ * @deprecated Use triggerTurnSceneImage and getSceneImageStatus instead.
+ */
 export async function generateSceneImage(req: {
   sessionId?: string;
   characterName?: string;

@@ -19,10 +19,14 @@ import {
   Wand2,
   Swords,
   Volume2,
+  ShieldAlert,
+  Clock,
+  X,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { ChatMessage, ChatSession } from "@/types";
 import { ThemeConfig } from "./chat.constants";
+import { resolveMediaUrl } from "@/lib/api";
 
 interface ChatMessageItemProps {
   msg: ChatMessage;
@@ -41,12 +45,59 @@ interface ChatMessageItemProps {
   isLoadingSuggestions: boolean;
   isImagining?: boolean;
   sceneImageUrl?: string;
+  sceneImageStatus?: "idle" | "queued" | "pending" | "processing" | "completed" | "failed" | "timeout" | "cancelled";
+  sceneImageFailureReason?: string;
   onCopy: (id: string, text: string) => void;
   onRollback: (id: string, index: number) => void;
   onFetchSuggestions: () => void;
   onContinueStory: () => void;
   onRegenerate: () => void;
-  onImagineScene?: (id: string, content: string) => void;
+  onImagineScene?: (turnId: string) => void;
+  onRegenerateScene?: (turnId: string) => void;
+  onCancelScene?: (turnId: string) => void;
+}
+
+export function formatSceneImageError(rawReason?: string, status?: string): string {
+  if (status === "cancelled") {
+    return "Yêu cầu vẽ ảnh đã được hủy.";
+  }
+  if (status === "timeout") {
+    return "Hết thời gian chờ phản hồi từ máy chủ AI. Bạn hãy thử lại nhé.";
+  }
+  if (!rawReason) {
+    return "Không thể tạo ảnh cho khoảnh khắc này. Vui lòng thử lại.";
+  }
+
+  const lower = rawReason.toLowerCase();
+  if (
+    lower.includes("actively refused") ||
+    lower.includes("failed to communicate with comfyui") ||
+    lower.includes("connection refused") ||
+    lower.includes("socketexception") ||
+    lower.includes("httprequestexception") ||
+    lower.includes("no such host") ||
+    lower.includes("127.0.0.1:8188")
+  ) {
+    return "Máy chủ vẽ ảnh AI tạm thời chưa sẵn sàng hoặc chưa được khởi động. Vui lòng thử lại sau.";
+  }
+
+  if (lower.includes("reference image") || lower.includes("visual identity")) {
+    return "Chưa có ảnh chân dung mẫu phù hợp để phác họa nhân vật này.";
+  }
+
+  if (lower.includes("timeout") || lower.includes("timed out") || lower.includes("canceled")) {
+    return "Quá trình tạo ảnh mất nhiều thời gian hơn dự kiến. Vui lòng bấm thử lại.";
+  }
+
+  if (lower.includes("workflow") || lower.includes("model") || lower.includes("gpu")) {
+    return "Mô hình vẽ ảnh đang bận hoặc đang bảo trì. Vui lòng thử lại sau.";
+  }
+
+  if (rawReason.length < 80 && !rawReason.includes("Exception") && !rawReason.includes("{") && !rawReason.includes("at ")) {
+    return rawReason;
+  }
+
+  return "Không thể tạo ảnh cho khoảnh khắc này. Vui lòng thử lại.";
 }
 
 export const getActionMeta = (actionText: string, colorClass: string) => {
@@ -200,13 +251,24 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
   isLoadingSuggestions,
   isImagining = false,
   sceneImageUrl,
+  sceneImageStatus = "idle",
+  sceneImageFailureReason,
   onCopy,
   onRollback,
   onFetchSuggestions,
   onContinueStory,
   onRegenerate,
   onImagineScene,
+  onRegenerateScene,
+  onCancelScene,
 }) => {
+  const effectiveTurnId = msg.turnId || undefined;
+  const isGeneratingThisTurn =
+    isImagining ||
+    sceneImageStatus === "queued" ||
+    sceneImageStatus === "pending" ||
+    sceneImageStatus === "processing";
+
   return (
     <div
       className={`flex w-full ${
@@ -255,17 +317,160 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
 
           <div>{formatMessageContent(msg.content, theme)}</div>
 
-          {/* Generated Scene Illustration Image */}
+          {/* 1. In-Flight Initial Generation (when no prior image exists) */}
+          {isGeneratingThisTurn && !sceneImageUrl && (
+            <div className="mt-3 overflow-hidden rounded-2xl border border-[#383a45] bg-[#16171b] p-5 shadow-lg relative flex flex-col items-center justify-center text-center gap-3 min-h-[145px]">
+              <div className="relative flex items-center justify-center">
+                <div className="h-9 w-9 rounded-xl bg-[#252730] border border-[#3b3d46] flex items-center justify-center shadow-xs">
+                  <Loader2 className="h-4.5 w-4.5 text-zinc-300 animate-spin" />
+                </div>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-xs font-semibold text-zinc-200">
+                  {sceneImageStatus === "queued" ? "Đang chuẩn bị khung cảnh..." : "Đang phác họa khoảnh khắc..."}
+                </p>
+                <p className="text-[11px] text-zinc-400">
+                  AI đang tái hiện cảm xúc và bối cảnh của nhân vật
+                </p>
+              </div>
+              <div className="w-32 h-1 rounded-full bg-[#252730] overflow-hidden border border-[#31333a]">
+                <div className="h-full w-full bg-gradient-to-r from-zinc-500 via-zinc-300 to-zinc-500 animate-pulse" />
+              </div>
+
+              {onCancelScene && effectiveTurnId && (
+                <button
+                  type="button"
+                  onClick={() => onCancelScene(effectiveTurnId)}
+                  className="mt-0.5 flex items-center gap-1.5 text-[11px] font-medium text-zinc-400 hover:text-zinc-200 bg-[#252730]/80 hover:bg-[#2c2f3a] border border-[#383a45] rounded-lg px-2.5 py-1 transition-all cursor-pointer active:scale-95 shadow-xs"
+                >
+                  <X className="h-3 w-3 text-zinc-400" />
+                  <span>Hủy yêu cầu</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* 2. Scene Illustration Image (Completed or with In-Flight Regeneration Overlay) */}
           {sceneImageUrl && (
-            <div className="mt-3 overflow-hidden rounded-2xl border border-[#3b3d46] bg-[#121316] shadow-xl group relative">
-              <img
-                src={sceneImageUrl}
-                alt="Minh họa khoảnh khắc"
-                className="w-full h-auto max-h-[420px] object-cover transition-transform duration-300 group-hover:scale-105"
-              />
-              <div className="absolute bottom-2 right-2 rounded-lg bg-black/70 backdrop-blur-xs px-2.5 py-1 text-[10px] text-zinc-200 font-semibold flex items-center gap-1.5 shadow-md">
-                <Sparkles className="h-3 w-3 text-purple-400" />
-                <span>Khoảnh khắc AI</span>
+            <div className="mt-3 space-y-2">
+              <div className="overflow-hidden rounded-2xl border border-[#3b3d46] bg-[#121316] shadow-xl group relative">
+                <img
+                  src={resolveMediaUrl(sceneImageUrl)}
+                  alt="Minh họa khoảnh khắc"
+                  className="w-full h-auto max-h-[420px] object-cover transition-transform duration-300 group-hover:scale-102"
+                />
+
+                {/* Regeneration In-Flight Overlay */}
+                {isGeneratingThisTurn && (
+                  <div className="absolute inset-0 bg-black/65 backdrop-blur-xs flex flex-col items-center justify-center gap-2.5 p-4 z-10">
+                    <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#18191e]/90 border border-[#383a45] shadow-lg text-zinc-200 text-xs font-medium">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-300" />
+                      <span>{sceneImageStatus === "queued" ? "Đang chuẩn bị bản vẽ mới..." : "Đang phác họa bản vẽ mới..."}</span>
+                    </div>
+                    {onCancelScene && effectiveTurnId && (
+                      <button
+                        type="button"
+                        onClick={() => onCancelScene(effectiveTurnId)}
+                        className="flex items-center gap-1 text-[11px] font-medium text-zinc-300 hover:text-white bg-[#252730]/90 hover:bg-[#2c2f3a] border border-[#383a45] rounded-lg px-2.5 py-1 transition-all cursor-pointer active:scale-95 shadow-md"
+                      >
+                        <X className="h-3 w-3 text-zinc-400" />
+                        <span>Hủy vẽ lại</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Regenerate Action Button */}
+                {!isGeneratingThisTurn && (
+                  <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    {onRegenerateScene && effectiveTurnId && (
+                      <button
+                        type="button"
+                        onClick={() => onRegenerateScene(effectiveTurnId)}
+                        disabled={isSending || isGeneratingThisTurn}
+                        className="rounded-lg bg-black/75 hover:bg-black/90 backdrop-blur-xs px-2.5 py-1 text-[11px] text-zinc-200 font-semibold flex items-center gap-1.5 shadow-md cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                        title="Vẽ lại khoảnh khắc này với snapshot cố định"
+                      >
+                        <RotateCcw className="h-3 w-3 text-amber-400" />
+                        <span>Vẽ lại</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <div className="absolute bottom-2 right-2 rounded-lg bg-black/70 backdrop-blur-xs px-2.5 py-1 text-[10px] text-zinc-200 font-semibold flex items-center gap-1.5 shadow-md z-10">
+                  <Sparkles className="h-3 w-3 text-purple-400" />
+                  <span>Khoảnh khắc AI</span>
+                </div>
+              </div>
+
+              {/* Notice if a regeneration attempt failed or was cancelled */}
+              {!isGeneratingThisTurn && (sceneImageStatus === "failed" || sceneImageStatus === "timeout" || sceneImageStatus === "cancelled") && (
+                <div className="overflow-hidden rounded-xl border border-red-500/30 bg-red-950/20 px-3 py-2 text-xs flex items-center justify-between gap-2">
+                  <span className="text-red-300">
+                    {sceneImageStatus === "cancelled"
+                      ? "Lần vẽ lại gần nhất đã bị hủy (đã giữ lại bản vẽ trước)."
+                      : `Lần vẽ lại không thành công: ${formatSceneImageError(sceneImageFailureReason, sceneImageStatus)} (đã giữ lại bản vẽ trước).`}
+                  </span>
+                  {onImagineScene && effectiveTurnId && (
+                    <button
+                      type="button"
+                      onClick={() => onImagineScene(effectiveTurnId)}
+                      disabled={isSending || isGeneratingThisTurn}
+                      className="shrink-0 rounded bg-red-900/50 hover:bg-red-900/80 px-2 py-0.5 text-[10px] font-semibold text-red-200 cursor-pointer"
+                    >
+                      Thử lại
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 3. Failed / Cancelled Scene Generation (when no prior image exists) */}
+          {!isGeneratingThisTurn && !sceneImageUrl && (sceneImageStatus === "failed" || sceneImageStatus === "cancelled") && (
+            <div className="mt-3 overflow-hidden rounded-2xl border border-red-500/30 bg-red-950/20 p-3 shadow-md">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <ShieldAlert className="h-4 w-4 text-red-400 shrink-0" />
+                  <span className="text-xs text-red-300 font-medium leading-relaxed">
+                    {formatSceneImageError(sceneImageFailureReason, sceneImageStatus)}
+                  </span>
+                </div>
+                {onImagineScene && effectiveTurnId && (
+                  <button
+                    type="button"
+                    onClick={() => onImagineScene(effectiveTurnId)}
+                    disabled={isSending || isGeneratingThisTurn}
+                    className="shrink-0 rounded-lg bg-red-900/40 hover:bg-red-900/60 border border-red-500/40 px-3 py-1.5 text-[11px] font-semibold text-red-200 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                  >
+                    Thử lại
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 4. Polling Timeout / Latency Warning */}
+          {!isGeneratingThisTurn && !sceneImageUrl && sceneImageStatus === "timeout" && (
+            <div className="mt-3 overflow-hidden rounded-2xl border border-amber-500/30 bg-amber-950/20 p-3 shadow-md">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Clock className="h-4 w-4 text-amber-400 shrink-0" />
+                  <span className="text-xs text-amber-300 font-medium leading-relaxed">
+                    {sceneImageFailureReason || "Hết thời gian chờ phản hồi từ máy chủ."}
+                  </span>
+                </div>
+                {onImagineScene && effectiveTurnId && (
+                  <button
+                    type="button"
+                    onClick={() => onImagineScene(effectiveTurnId)}
+                    disabled={isSending || isGeneratingThisTurn}
+                    className="shrink-0 rounded-lg bg-amber-900/40 hover:bg-amber-900/60 border border-amber-500/40 px-3 py-1.5 text-[11px] font-semibold text-amber-200 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                  >
+                    Thử lại
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -292,20 +497,16 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
                 </button>
               )}
 
-              {!isUser && onImagineScene && (
+              {!isUser && !isOpeningMessage && onImagineScene && effectiveTurnId && !sceneImageUrl && !isGeneratingThisTurn && (
                 <button
                   type="button"
-                  onClick={() => onImagineScene(msg.id, msg.content)}
-                  disabled={isSending || isImagining}
+                  onClick={() => onImagineScene(effectiveTurnId)}
+                  disabled={isSending || isGeneratingThisTurn}
                   className="flex items-center gap-1.5 rounded-lg bg-[#272832] px-2.5 py-1 text-[11px] font-medium text-zinc-300 hover:bg-[#323440] hover:text-purple-300 transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
                   title="AI vẽ lại khoảnh khắc nhân vật trong câu thoại này"
                 >
-                  {isImagining ? (
-                    <Loader2 className="h-3 w-3 animate-spin text-purple-400" />
-                  ) : (
-                    <Sparkles className="h-3 w-3 text-purple-400" />
-                  )}
-                  <span>{isImagining ? "Đang vẽ..." : "Vẽ cảnh"}</span>
+                  <Sparkles className="h-3 w-3 text-purple-400" />
+                  <span>Vẽ cảnh</span>
                 </button>
               )}
 

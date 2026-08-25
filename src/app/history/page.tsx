@@ -6,6 +6,7 @@ import { fetchRecentSessions, deleteChatSession } from "@/lib/api";
 import { Header } from "@/components/layout/Header";
 import { Avatar } from "@/components/ui/Avatar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useAuth } from "@/core/providers/AuthProvider";
 import { useRouter } from "next/navigation";
 import {
   History,
@@ -17,11 +18,14 @@ import {
   ArrowRight,
   Clock,
   X,
+  Lock,
+  LogIn,
 } from "lucide-react";
 import Link from "next/link";
 
 export default function HistoryPage() {
   const router = useRouter();
+  const { isAuthenticated, isLoading: isAuthLoading, openAuthModal } = useAuth();
   const [sessions, setSessions] = useState<ChatSessionListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -33,6 +37,7 @@ export default function HistoryPage() {
   const [isCleaning, setIsCleaning] = useState(false);
 
   const loadSessions = async () => {
+    if (!isAuthenticated) return;
     try {
       setIsLoading(true);
       const data = await fetchRecentSessions();
@@ -45,8 +50,12 @@ export default function HistoryPage() {
   };
 
   useEffect(() => {
-    loadSessions();
-  }, []);
+    if (isAuthenticated) {
+      loadSessions();
+    } else {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated]);
 
   const handleConfirmDeleteSingle = async () => {
     if (!sessionToDelete) return;
@@ -91,6 +100,32 @@ export default function HistoryPage() {
   });
 
   const emptySessionsCount = sessions.filter((s) => s.messageCount === 0).length;
+
+  if (!isAuthLoading && !isAuthenticated) {
+    return (
+      <div className="h-full flex flex-col bg-[#18191c] text-zinc-100 overflow-hidden selection:bg-[#353740] selection:text-white">
+        <Header />
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="max-w-md w-full rounded-2xl border border-[#31333a] bg-[#212227] p-8 text-center shadow-xl">
+            <div className="mx-auto w-14 h-14 rounded-2xl bg-[#2b2c34] border border-[#3b3d46] flex items-center justify-center text-zinc-200 mb-5">
+              <Lock className="w-6 h-6 text-zinc-300" />
+            </div>
+            <h2 className="text-xl font-bold text-zinc-100 tracking-tight">Lịch sử Trò chuyện</h2>
+            <p className="text-xs sm:text-sm text-zinc-400 mt-2 mb-6 leading-relaxed">
+              Vui lòng đăng nhập để lưu trữ và xem lại lịch sử các cuộc trò chuyện nhập vai của bạn.
+            </p>
+            <button
+              onClick={openAuthModal}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 py-2.5 px-4 text-xs sm:text-sm font-bold shadow-md shadow-white/5 transition-all cursor-pointer active:scale-98"
+            >
+              <LogIn className="w-4 h-4 text-zinc-950" />
+              <span>Đăng nhập ngay</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col bg-[#18191c] text-zinc-100 overflow-hidden selection:bg-[#353740] selection:text-white">

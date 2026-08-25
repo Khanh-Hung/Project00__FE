@@ -5,6 +5,7 @@ import { MessageSquare, User } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { getWorldGenreMeta } from "@/lib/constants";
+import { resolveMediaUrl } from "@/lib/api";
 import Link from "next/link";
 
 interface CharacterCardProps {
@@ -15,10 +16,11 @@ interface CharacterCardProps {
 
 export function CharacterCard({ character, onSelect, dense = false }: CharacterCardProps) {
   const genreMeta = getWorldGenreMeta(character.worldGenre);
-  const bgImage =
+  const rawBgImage =
     character.visualIdentity?.fullBodyUrl ||
     character.visualIdentity?.canonicalReferenceUrl ||
     character.avatarUrl;
+  const bgImage = resolveMediaUrl(rawBgImage);
 
   return (
     <div

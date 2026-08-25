@@ -17,6 +17,7 @@ import { CharacterCard } from "@/components/characters/CharacterCard";
 import { ImageCropperModal } from "@/components/ui/ImageCropperModal";
 import RelationshipMilestonesEditor from "@/components/characters/RelationshipMilestonesEditor";
 import { WORLD_GENRE_OPTIONS, getWorldGenreMeta } from "@/lib/constants";
+import { useAuth } from "@/core/providers/AuthProvider";
 import {
   ArrowLeft,
   Sparkles,
@@ -34,6 +35,7 @@ import {
   Trash2,
   Crop,
   ChevronDown,
+  Lock,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -47,6 +49,14 @@ export default function EditCharacterPage() {
   const params = useParams();
   const router = useRouter();
   const characterId = params.id as string;
+  const { user, isAuthenticated, isLoading: isAuthLoading, openAuthModal } = useAuth();
+
+  useEffect(() => {
+    if (!isAuthLoading && !isAuthenticated) {
+      openAuthModal();
+      router.push("/studio");
+    }
+  }, [isAuthLoading, isAuthenticated, router, openAuthModal]);
 
   const [character, setCharacter] = useState<Character | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -299,7 +309,7 @@ export default function EditCharacterPage() {
         accessories: accessories.trim() || undefined,
         visualTraits: visualTraits.trim() || undefined,
         fullBodyUrl: fullBodyUrl.trim() || undefined,
-        canonicalReferenceUrl: fullBodyUrl.trim() || undefined,
+        canonicalReferenceUrl: avatarUrl.trim() || fullBodyUrl.trim() || undefined,
       };
 
       const voiceProfile: CharacterVoiceProfile = {
