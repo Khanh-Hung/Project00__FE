@@ -309,7 +309,7 @@ export default function EditCharacterPage() {
         accessories: accessories.trim() || undefined,
         visualTraits: visualTraits.trim() || undefined,
         fullBodyUrl: fullBodyUrl.trim() || undefined,
-        canonicalReferenceUrl: fullBodyUrl.trim() || undefined,
+        canonicalReferenceUrl: avatarUrl.trim() || fullBodyUrl.trim() || undefined,
       };
 
       const voiceProfile: CharacterVoiceProfile = {
